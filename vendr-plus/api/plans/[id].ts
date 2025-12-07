@@ -1,0 +1,32 @@
+// @ts-ignore
+import { Pool } from 'pg'
+
+const conn = process.env.SUPABASE_DB_URL || process.env.POSTGRES_URL || ''
+const pool = new Pool({
+  connectionString: conn,
+  ssl: /supabase\.(co|in|net)/.test(conn) ? { rejectUnauthorized: false } : undefined,
+  connectionTimeoutMillis: 5000,
+})
+
+export default async function handler(req: any, res: any) {
+  if (req.method !== 'GET') { res.status(405).send('Método não permitido'); return }
+  const id = Array.isArray(req.query?.id) ? req.query.id[0] : req.query?.id
+  if (!id) { res.status(400).send('ID inválido'); return }
+  try {
+    const q = 'SELECT id, name, monthly_price, annual_price, limit_products, limit_customers, coupon, nota, support, promo FROM plans WHERE id=$1'
+    const { rows } = await pool.query(q, [id])
+    if (!rows.length) { res.status(404).send('Plano não encontrado'); return }
+    const r = rows[0]
+    const obj = {
+      name: r.name,
+      monthlyPrice: Number(r.monthly_price),
+      annualPrice: Number(r.annual_price),
+      limits: { products: r.limit_products==null?null:Number(r.limit_products), customers: r.limit_customers==null?null:Number(r.limit_customers) },
+      features: { coupon: !!r.coupon, nota: !!r.nota, support: String(r.support) },
+      promo: r.promo || ''
+    }
+    res.status(200).json(obj)
+  } catch (e: any) {
+    res.status(500).send(String(e?.message||e))
+  }
+}
