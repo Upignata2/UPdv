@@ -1,12 +1,19 @@
 // @ts-ignore
 import { Pool } from 'pg'
 
-const conn = process.env.SUPABASE_DB_URL || process.env.POSTGRES_URL || ''
-const pool = new Pool({
-  connectionString: conn,
-  ssl: /supabase\.(co|in|net)/.test(conn) ? { rejectUnauthorized: false } : undefined,
-  connectionTimeoutMillis: 5000,
-})
+let pool: any
+function getPool() {
+  const conn = process.env.SUPABASE_DB_URL || process.env.POSTGRES_URL || ''
+  if (!conn) throw new Error('Configuração do banco ausente')
+  if (!pool) {
+    pool = new Pool({
+      connectionString: conn,
+      ssl: /supabase\.(co|in|net)/.test(conn) ? { rejectUnauthorized: false } : undefined,
+      connectionTimeoutMillis: 5000,
+    })
+  }
+  return pool
+}
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'GET') { res.status(405).send('Método não permitido'); return }
@@ -14,7 +21,7 @@ export default async function handler(req: any, res: any) {
   if (!id) { res.status(400).send('ID inválido'); return }
   try {
     const q = 'SELECT id, name, monthly_price, annual_price, limit_products, limit_customers, coupon, nota, support, promo FROM plans WHERE id=$1'
-    const { rows } = await pool.query(q, [id])
+    const { rows } = await getPool().query(q, [id])
     if (!rows.length) { res.status(404).send('Plano não encontrado'); return }
     const r = rows[0]
     const obj = {
