@@ -1,5 +1,7 @@
 // @ts-ignore
 import { Pool } from 'pg'
+import dns from 'node:dns/promises'
+import { URL as NodeURL } from 'node:url'
 
 let pool: any
 function getPool() {
@@ -15,9 +17,43 @@ function getPool() {
   return pool
 }
 
+function parseConn() {
+  const raw = (process.env.SUPABASE_DB_URL || process.env.POSTGRES_URL || '').trim()
+  const u = new NodeURL(raw)
+  const host = u.hostname
+  const port = Number(u.port || '5432')
+  return { raw, host, port }
+}
+
+function getSupabaseRest() {
+  const urlVar = (process.env.SUPABASE_URL || '').trim()
+  const key = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || process.env.SUPABASE_ANON_KEY || '').trim()
+  if (urlVar && key) return { base: urlVar.replace(/\/+$/, ''), key }
+  const raw = (process.env.SUPABASE_DB_URL || process.env.POSTGRES_URL || '').trim()
+  if (!raw) return null
+  try {
+    const u = new NodeURL(raw)
+    const host = u.hostname.replace(/^db\./, '')
+    return { base: `https://${host}`, key }
+  } catch {
+    return null
+  }
+}
+
 export default async function handler(req: any, res: any) {
   if (req.method !== 'GET') { res.status(405).send('Método não permitido'); return }
   try {
+    if (String(req.query?.debug||'').toLowerCase() === '1' || String(req.query?.debug||'').toLowerCase() === 'true') {
+      const info = parseConn()
+      try {
+        const r = await dns.lookup(info.host)
+        res.status(200).json({ host: info.host, port: info.port, address: r.address, family: r.family })
+        return
+      } catch (e: any) {
+        res.status(500).json({ host: info.host, port: info.port, error: String(e?.message||e) })
+        return
+      }
+    }
     const q = 'SELECT id, name, monthly_price, annual_price, limit_products, limit_customers, coupon, nota, support, promo FROM plans'
     const { rows } = await getPool().query(q)
     const obj: Record<string, any> = {}
@@ -34,6 +70,29 @@ export default async function handler(req: any, res: any) {
     res.status(200).json(obj)
   } catch (e: any) {
     const msg = String(e?.message||e)
+    try {
+      const rest = getSupabaseRest()
+      if (rest && rest.key) {
+        const url = `${rest.base}/rest/v1/plans?select=id,name,monthly_price,annual_price,limit_products,limit_customers,coupon,nota,support,promo`
+        const resp = await fetch(url, { headers: { apikey: rest.key, Authorization: `Bearer ${rest.key}` } })
+        if (resp.ok) {
+          const rows = await resp.json()
+          const obj: Record<string, any> = {}
+          for (const r of rows) {
+            obj[r.id] = {
+              name: r.name,
+              monthlyPrice: Number(r.monthly_price),
+              annualPrice: Number(r.annual_price),
+              limits: { products: r.limit_products==null?null:Number(r.limit_products), customers: r.limit_customers==null?null:Number(r.limit_customers) },
+              features: { coupon: !!r.coupon, nota: !!r.nota, support: String(r.support) },
+              promo: r.promo || ''
+            }
+          }
+          res.status(200).json(obj)
+          return
+        }
+      }
+    } catch {}
     if (/ENOTFOUND/i.test(msg)) {
       try {
         const raw = (process.env.SUPABASE_DB_URL || process.env.POSTGRES_URL || '').trim()
@@ -60,6 +119,29 @@ export default async function handler(req: any, res: any) {
         res.status(200).json(obj)
         return
       } catch (ee: any) {
+        try {
+          const rest = getSupabaseRest()
+          if (rest && rest.key) {
+            const url = `${rest.base}/rest/v1/plans?select=id,name,monthly_price,annual_price,limit_products,limit_customers,coupon,nota,support,promo`
+            const resp = await fetch(url, { headers: { apikey: rest.key, Authorization: `Bearer ${rest.key}` } })
+            if (resp.ok) {
+              const rows = await resp.json()
+              const obj: Record<string, any> = {}
+              for (const r of rows) {
+                obj[r.id] = {
+                  name: r.name,
+                  monthlyPrice: Number(r.monthly_price),
+                  annualPrice: Number(r.annual_price),
+                  limits: { products: r.limit_products==null?null:Number(r.limit_products), customers: r.limit_customers==null?null:Number(r.limit_customers) },
+                  features: { coupon: !!r.coupon, nota: !!r.nota, support: String(r.support) },
+                  promo: r.promo || ''
+                }
+              }
+              res.status(200).json(obj)
+              return
+            }
+          }
+        } catch {}
         res.status(500).send(String(ee?.message||ee))
         return
       }
