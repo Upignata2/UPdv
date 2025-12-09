@@ -34,6 +34,36 @@ export default async function handler(req: any, res: any) {
     }
     res.status(200).json(obj)
   } catch (e: any) {
-    res.status(500).send(String(e?.message||e))
+    const msg = String(e?.message||e)
+    if (/ENOTFOUND/i.test(msg)) {
+      try {
+        const raw = (process.env.SUPABASE_DB_URL || process.env.POSTGRES_URL || '').trim()
+        const hasQuery = /\?/.test(raw)
+        const alt = raw.replace(':5432', ':6543') + (hasQuery ? '&pgbouncer=true' : '?pgbouncer=true')
+        const altPool = new Pool({
+          connectionString: alt,
+          ssl: /supabase\.(co|in|net)/.test(raw) ? { rejectUnauthorized: false } : undefined,
+          connectionTimeoutMillis: 5000,
+        })
+        const q = 'SELECT id, name, monthly_price, annual_price, limit_products, limit_customers, coupon, nota, support, promo FROM plans WHERE id=$1'
+        const { rows } = await altPool.query(q, [id])
+        if (!rows.length) { res.status(404).send('Plano não encontrado'); return }
+        const r = rows[0]
+        const obj = {
+          name: r.name,
+          monthlyPrice: Number(r.monthly_price),
+          annualPrice: Number(r.annual_price),
+          limits: { products: r.limit_products==null?null:Number(r.limit_products), customers: r.limit_customers==null?null:Number(r.limit_customers) },
+          features: { coupon: !!r.coupon, nota: !!r.nota, support: String(r.support) },
+          promo: r.promo || ''
+        }
+        res.status(200).json(obj)
+        return
+      } catch (ee: any) {
+        res.status(500).send(String(ee?.message||ee))
+        return
+      }
+    }
+    res.status(500).send(msg)
   }
 }
