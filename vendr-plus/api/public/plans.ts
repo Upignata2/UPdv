@@ -3,7 +3,7 @@ import { Pool } from 'pg'
 
 let pool: any
 function getPool() {
-  const conn = process.env.SUPABASE_DB_URL || process.env.POSTGRES_URL || ''
+  const conn = (process.env.SUPABASE_DB_URL || process.env.POSTGRES_URL || '').trim()
   if (!conn) throw new Error('Configuração do banco ausente')
   if (!pool) {
     pool = new Pool({
