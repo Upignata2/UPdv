@@ -169,36 +169,37 @@ function Welcome() {
   }, [])
   const ids = ['gratis','basico','elite'] as const
   return (
-    <div style={{minHeight:'100vh', display:'grid', alignItems:'center', justifyItems:'center', padding:'32px', background:'radial-gradient(1200px 600px at 10% 0%, #ffe4f1 0%, transparent 60%), radial-gradient(1200px 600px at 90% 0%, #f3e8ff 0%, transparent 60%), linear-gradient(135deg, #fdf2f8, #f1f5f9)'}}>
-      <div style={{width:'min(980px, 94vw)'}}>
-        <div className="card" style={{padding:'26px 24px', border:'1px solid rgba(236,72,153,0.25)', boxShadow:'0 16px 50px rgba(236,72,153,0.22)', background:'linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,255,255,0.86))', backdropFilter:'saturate(1.4) blur(6px)'}}>
-          <div className="row" style={{alignItems:'center', gap:12, marginBottom:10}}>
-            <span style={{display:'inline-flex', alignItems:'center', justifyContent:'center', width:48, height:48, borderRadius:14, background:'linear-gradient(135deg, var(--primary), var(--accent))', boxShadow:'0 10px 26px rgba(236,72,153,0.28)'}}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+    <div style={{minHeight:'100vh', display:'grid', alignItems:'center', justifyItems:'center', padding:'32px', background:'radial-gradient(circle at 50% 0%, #18181b 0%, #09090b 100%)'}}>
+      <div style={{position:'absolute', inset:0, background:'radial-gradient(circle at 80% 20%, rgba(236,72,153,0.15), transparent 40%), radial-gradient(circle at 20% 80%, rgba(219,39,119,0.1), transparent 40%)', pointerEvents:'none'}} />
+      <div style={{width:'min(980px, 94vw)', position:'relative', zIndex:1}}>
+        <div className="card" style={{padding:'40px', border:'1px solid rgba(255,255,255,0.1)', boxShadow:'0 25px 50px -12px rgba(0,0,0,0.5)', background:'rgba(24,24,27,0.6)', backdropFilter:'blur(12px)'}}>
+          <div className="row" style={{alignItems:'center', gap:12, marginBottom:24}}>
+            <span style={{display:'inline-flex', alignItems:'center', justifyContent:'center', width:48, height:48, borderRadius:14, background:'linear-gradient(135deg, var(--primary), var(--accent))', boxShadow:'0 0 20px rgba(236,72,153,0.4)'}}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                 <path d="M3 5h2l2 10h9l2-6H7" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <circle cx="9" cy="18" r="1.9" fill="#ffffff"/>
-                <circle cx="16" cy="18" r="1.9" fill="#ffffff"/>
+                <circle cx="9" cy="18" r="2" fill="#ffffff"/>
+                <circle cx="16" cy="18" r="2" fill="#ffffff"/>
               </svg>
             </span>
-            <div style={{fontWeight:800, fontSize:24}}>UPdv</div>
+            <div style={{fontWeight:800, fontSize:28, letterSpacing:'-0.03em'}}>UPdv</div>
           </div>
-          <div className="h1" style={{fontSize:30}}>Assine um plano e tenha benefícios exclusivos</div>
-          <div className="muted" style={{marginTop:8, fontSize:16}}>Adquira o melhor sistema de controle para seu negócio.</div>
-          <div className="row" style={{gap:10, marginTop:16}}>
-            <div style={{display:'inline-flex', padding:4, border:'1px solid var(--border)', borderRadius:14, background:'#fafafc'}}>
-              <button className="btn" onClick={()=>setBilling('anual')} style={{border:'none', background: billing==='anual' ? '#5b21b6' : 'transparent', color: billing==='anual' ? '#fff' : 'inherit'}}>Anual</button>
-              <button className="btn" onClick={()=>setBilling('mensal')} style={{border:'none', background: billing==='mensal' ? 'var(--primary)' : 'transparent', color: billing==='mensal' ? '#fff' : 'inherit'}}>Mensal</button>
+          <div className="h1" style={{fontSize:42, lineHeight:1.1, marginBottom:16}}>Assine um plano e tenha <span style={{color:'var(--primary)'}}>benefícios exclusivos</span></div>
+          <div className="muted" style={{fontSize:18, maxWidth:600}}>Adquira o melhor sistema de controle para seu negócio. Simples, rápido e eficiente.</div>
+          <div className="row" style={{gap:10, marginTop:32}}>
+            <div style={{display:'inline-flex', padding:4, border:'1px solid var(--border)', borderRadius:14, background:'#000'}}>
+              <button className="btn" onClick={()=>setBilling('anual')} style={{border:'none', background: billing==='anual' ? 'var(--accent)' : 'transparent', color: billing==='anual' ? '#fff' : 'inherit', boxShadow: billing==='anual' ? '0 4px 12px rgba(0,0,0,0.3)' : 'none'}}>Anual</button>
+              <button className="btn" onClick={()=>setBilling('mensal')} style={{border:'none', background: billing==='mensal' ? 'var(--primary)' : 'transparent', color: billing==='mensal' ? '#fff' : 'inherit', boxShadow: billing==='mensal' ? '0 4px 12px rgba(0,0,0,0.3)' : 'none'}}>Mensal</button>
             </div>
-            <button className="btn primary" onClick={()=>{ location.hash = '#login' }}>Entrar</button>
+            <button className="btn primary" onClick={()=>{ location.hash = '#login' }} style={{padding:'12px 32px', fontSize:16}}>Entrar</button>
           </div>
         </div>
-        <div className="card" style={{marginTop:18, textAlign:'center'}}>
-          <div className="h1" style={{fontSize:24}}>Estabilidade e agilidade nas suas vendas com o PDV - Frente de Caixa da UPdv!</div>
-          <div className="muted" style={{marginTop:8, fontSize:16}}>Com o nosso Sistema PDV você agiliza suas vendas através de uma plataforma segura e completa. Conheça o sistema que vai trazer mais eficiência nas suas vendas.</div>
+        <div className="card" style={{marginTop:24, textAlign:'center', background:'transparent', border:'none', boxShadow:'none'}}>
+          <div className="h1" style={{fontSize:28}}>Estabilidade e agilidade nas suas vendas</div>
+          <div className="muted" style={{marginTop:12, fontSize:16, maxWidth:700, marginInline:'auto'}}>Com o nosso Sistema PDV você agiliza suas vendas através de uma plataforma segura e completa.</div>
         </div>
-        <div className="grid" style={{gridTemplateColumns:'repeat(3, minmax(0, 1fr))', gap:16, marginTop:22}}>
+        <div className="grid" style={{gridTemplateColumns:'repeat(auto-fit, minmax(280px, 1fr))', gap:24, marginTop:32}}>
           {plans && ids.map(pid => {
-            const accent = pid==='elite' ? 'linear-gradient(135deg, #fb7185, #f472b6)' : pid==='basico' ? 'linear-gradient(135deg, #ec4899, #f472b6)' : 'linear-gradient(135deg, #94a3b8, #cbd5e1)'
+            const accent = pid==='elite' ? 'linear-gradient(135deg, #fb7185, #f472b6)' : pid==='basico' ? 'linear-gradient(135deg, #ec4899, #f472b6)' : 'linear-gradient(135deg, #52525b, #71717a)'
             const price = billing==='mensal' ? plans[pid].monthlyPrice : plans[pid].annualPrice
             const sup = plans[pid].features.support
             const supLabel = sup==='full' ? 'Suporte completo' : sup==='limited' ? 'Suporte limitado' : 'Sem suporte'
@@ -207,24 +208,24 @@ function Welcome() {
             const popular = pid==='basico'
             const open = !!more[pid]
             return (
-              <div key={pid} className="card" style={{position:'relative', overflow:'hidden'}}>
-                <div style={{height:4, width:'100%', background:accent, borderRadius:12, margin:-18, marginBottom:14}} />
+              <div key={pid} className="card" style={{position:'relative', overflow:'hidden', border: popular ? '1px solid var(--primary)' : '1px solid var(--border)', transform: popular ? 'scale(1.02)' : 'none'}}>
+                <div style={{height:4, width:'100%', background:accent, borderRadius:12, margin:-24, marginBottom:20}} />
                 {popular && <span style={{position:'absolute', right:12, top:12}} className="badge">Mais Vendido</span>}
                 <div className="h2" style={{marginBottom:8}}>{plans[pid].name}</div>
                 <div style={{fontSize:24, fontWeight:800, marginBottom:12}}>{formatBRL(price)}</div>
                 <button className="btn primary" onClick={()=>{ location.hash = '#login' }} style={{width:'100%', justifyContent:'center'}}>Comprar Agora</button>
                 <div style={{marginTop:12, display:'grid', gap:8}}>
                   <div className="row" style={{gap:8}}>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12l4 4 10-10" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12l4 4 10-10" stroke="#4ade80" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                     <span>Produtos {limProd}</span>
                   </div>
                   <div className="row" style={{gap:8}}>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12l4 4 10-10" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12l4 4 10-10" stroke="#4ade80" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                     <span>Clientes {limCli}</span>
                   </div>
                   <div className="row" style={{gap:8}}>
                     {plans[pid].features.coupon ? (
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12l4 4 10-10" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12l4 4 10-10" stroke="#4ade80" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                     ) : (
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6l-12 12" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round"/></svg>
                     )}
@@ -232,7 +233,7 @@ function Welcome() {
                   </div>
                   <div className="row" style={{gap:8}}>
                     {plans[pid].features.nota ? (
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12l4 4 10-10" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12l4 4 10-10" stroke="#4ade80" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                     ) : (
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6l-12 12" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round"/></svg>
                     )}
@@ -240,7 +241,7 @@ function Welcome() {
                   </div>
                   <div className="row" style={{gap:8}}>
                     {(sup!=='none') ? (
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12l4 4 10-10" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12l4 4 10-10" stroke="#4ade80" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                     ) : (
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6l-12 12" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round"/></svg>
                     )}
@@ -309,7 +310,7 @@ function Stat({label, value}:{label:string; value:string}) {
 function Logo() {
   return (
     <div className="row" style={{alignItems:'center', gap:10, marginBottom:16}}>
-      <span style={{display:'inline-flex', alignItems:'center', justifyContent:'center', width:36, height:36, borderRadius:12, background:'linear-gradient(135deg, var(--primary), var(--accent))', boxShadow:'0 6px 18px rgba(236,72,153,0.25)'}}>
+      <span style={{display:'inline-flex', alignItems:'center', justifyContent:'center', width:36, height:36, borderRadius:12, background:'linear-gradient(135deg, var(--primary), var(--accent))', boxShadow:'0 0 18px rgba(236,72,153,0.4)'}}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
           <path d="M3 5h2l2 10h9l2-6H7" stroke="#ffffff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
           <circle cx="9" cy="18" r="1.6" fill="#ffffff"/>
@@ -409,7 +410,7 @@ function Login({ onLogin }:{ onLogin:(user:{ id:string; name:string; email?:stri
     <div className="modal open">
       <div className="sheet" style={{maxWidth:480}}>
         <div className="row" style={{alignItems:'center', gap:10, marginBottom:16}}>
-          <span style={{display:'inline-flex', alignItems:'center', justifyContent:'center', width:40, height:40, borderRadius:12, background:'linear-gradient(135deg, var(--primary), var(--accent))', boxShadow:'0 6px 18px rgba(236,72,153,0.25)'}}>
+          <span style={{display:'inline-flex', alignItems:'center', justifyContent:'center', width:40, height:40, borderRadius:12, background:'linear-gradient(135deg, var(--primary), var(--accent))', boxShadow:'0 0 18px rgba(236,72,153,0.4)'}}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
               <path d="M3 5h2l2 10h9l2-6H7" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               <circle cx="9" cy="18" r="1.8" fill="#ffffff"/>
