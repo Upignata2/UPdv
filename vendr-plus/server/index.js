@@ -34,10 +34,11 @@ const defaultPlans = {
     promo: ''
   }
 }
-const db = new Low(adapter, { products: [], customers: [], services: [], sales: [], quotes: [], users: [], sessions: [], accessLogs: [], supportEvents: [], plans: defaultPlans })
+const db = new Low(adapter, { products: [], customers: [], services: [], sales: [], quotes: [], users: [], sessions: [], accessLogs: [], supportEvents: [], plans: defaultPlans, paymentConfig: { pixKey: '', pixName: '', instructions: '' } })
 await db.read()
-db.data ||= { products: [], customers: [], services: [], sales: [], quotes: [], users: [], sessions: [], accessLogs: [], supportEvents: [], plans: defaultPlans }
+db.data ||= { products: [], customers: [], services: [], sales: [], quotes: [], users: [], sessions: [], accessLogs: [], supportEvents: [], plans: defaultPlans, paymentConfig: { pixKey: '', pixName: '', instructions: '' } }
 if (!db.data.plans) { db.data.plans = defaultPlans; await db.write() }
+if (!db.data.paymentConfig) { db.data.paymentConfig = { pixKey: '', pixName: '', instructions: '' }; await db.write() }
 
 let pgPool = null
 let usePg = false
@@ -123,6 +124,15 @@ const store = {
   async setUserActive(id, active) {
     if (usePg) { await sql(`update users set active=$2 where id=$1`, [id, !!active]); return }
     const u = db.data.users.find(x=>x.id===id); if (u) { u.active = !!active; await db.write() }
+  },
+  async getPaymentConfig() {
+    if (usePg) { /* TODO: SQL implementation */ return { pixKey: '', pixName: '', instructions: '' } }
+    return db.data.paymentConfig
+  },
+  async updatePaymentConfig(cfg) {
+    if (usePg) { /* TODO: SQL implementation */ return }
+    db.data.paymentConfig = { ...db.data.paymentConfig, ...cfg }
+    await db.write()
   }
 }
 
@@ -412,6 +422,22 @@ app.get('/api/admin/users', requireAuth, requireAdmin, async (req, res) => {
 app.get('/api/plans', requireAuth, async (req, res) => { res.json(await store.getPlans()) })
 app.get('/api/plans/:id', requireAuth, async (req, res) => { const p = await store.getPlanById(req.params.id); if (!p) return res.status(404).send('Plano não encontrado'); res.json(p) })
 app.get('/api/public/plans', async (req, res) => { res.json(await store.getPlans()) })
+app.get('/api/public/payment-config', async (req, res) => { res.json(await store.getPaymentConfig()) })
+app.post('/api/plans/upgrade', requireAuth, async (req, res) => {
+  const { planId } = req.body
+  if (!planId) return res.status(400).send('Plano obrigatório')
+  const plans = await store.getPlans()
+  if (!plans[planId]) return res.status(400).send('Plano inválido')
+  // In a real app, verify payment here.
+  // For now, we trust the user has paid manually.
+  await store.setUserPlan(req.userId, planId)
+  res.json({ ok: true })
+})
+app.post('/api/admin/payment-config', requireAuth, requireAdmin, async (req, res) => {
+  const { pixKey, pixName, instructions } = req.body
+  await store.updatePaymentConfig({ pixKey: String(pixKey||''), pixName: String(pixName||''), instructions: String(instructions||'') })
+  res.json({ ok: true })
+})
 app.get('/api/admin/plans', requireAuth, requireAdmin, async (req, res) => { res.json(await store.getPlans()) })
 app.post('/api/admin/plans/:id', requireAuth, requireAdmin, async (req, res) => {
   const id = req.params.id

@@ -111,11 +111,22 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 
 function Home({ plan }:{ plan: { name:string; monthlyPrice:number; annualPrice:number; limits:{ products:number|null; customers:number|null }; features:{ coupon:boolean; nota:boolean; support:'none'|'limited'|'full' }; promo?:string } | null }) {
   const [stats, setStats] = useState<{ today: number; month: number; products: number; customers: number }>()
+  const [plansOpen, setPlansOpen] = useState(false)
+  const [checkoutPlan, setCheckoutPlan] = useState<any>(null)
   useEffect(() => { api<{
     today: number; month: number; products: number; customers: number
   }>(`/stats`).then(setStats).catch(console.error) }, [])
   const goal = 2000
   const progress = Math.min(100, Math.round(((stats?.month||0) / goal) * 100))
+  
+  const handleUpgrade = async () => {
+      try {
+          await api('/plans/upgrade', { method: 'POST', body: JSON.stringify({ planId: checkoutPlan.id }) })
+          alert('Plano atualizado com sucesso! (Simulação)')
+          location.reload()
+      } catch (e) { alert('Erro ao atualizar plano') }
+  }
+
   return (
     <div className="grid">
       <div className="tiles">
@@ -124,10 +135,10 @@ function Home({ plan }:{ plan: { name:string; monthlyPrice:number; annualPrice:n
           <div className="value">{formatBRL(stats?.month || 0)}</div>
           <div className="progress"><span style={{width: `${progress}%`}} /></div>
         </div>
-        <div className="tile">
+        <div className="tile" style={{cursor:'pointer'}} onClick={()=>setPlansOpen(true)}>
           <div className="label">Plano atual</div>
           <div className="value">{plan?.name||'-'}</div>
-          <div className="muted">Mensal {formatBRL(plan?.monthlyPrice||0)} • Anual {formatBRL(plan?.annualPrice||0)}</div>
+          <div className="muted" style={{fontSize:12}}>Clique para mudar</div>
         </div>
         <a className="tile" href="#pos">
           <div className="label">Novo Pedido</div>
@@ -150,6 +161,8 @@ function Home({ plan }:{ plan: { name:string; monthlyPrice:number; annualPrice:n
           <div className="value">Criar e converter</div>
         </a>
       </div>
+      {plansOpen && <PlansModal onClose={()=>setPlansOpen(false)} onSelect={(p)=>{ setCheckoutPlan(p); setPlansOpen(false) }} />}
+      {checkoutPlan && <CheckoutModal plan={checkoutPlan} onClose={()=>setCheckoutPlan(null)} onConfirm={handleUpgrade} />}
     </div>
   )
 }
@@ -708,6 +721,7 @@ function Admin() {
   const [metrics, setMetrics] = useState<any>()
   const [logs, setLogs] = useState<Array<{ id:string; ts:string; userId:string|null; method:string; path:string; status:number; dur:number }>>([])
   const [plans, setPlans] = useState<any>()
+  const [payConf, setPayConf] = useState<{pixKey:string; pixName:string; instructions:string}>({pixKey:'', pixName:'', instructions:''})
   const [loading, setLoading] = useState(false)
   const load = async () => {
     const users = await api<typeof list[0][]>(`/admin/users`)
@@ -718,14 +732,30 @@ function Admin() {
     setLogs(lg)
     const p = await api<any>(`/admin/plans`)
     setPlans(p)
+    api<{pixKey:string; pixName:string; instructions:string}>('/public/payment-config').then(setPayConf).catch(()=>{})
   }
   useEffect(() => { load().catch(console.error) }, [])
   const setPlan = async (id:string, plan:'gratis'|'basico'|'elite') => { setLoading(true); await api(`/admin/users/${id}/plan`, { method:'POST', body: JSON.stringify({ plan }) }); await load(); setLoading(false) }
   const setStatus = async (id:string, active:boolean) => { setLoading(true); await api(`/admin/users/${id}/status`, { method:'POST', body: JSON.stringify({ active }) }); await load(); setLoading(false) }
   const savePlan = async (id:'gratis'|'basico'|'elite') => { setLoading(true); await api(`/admin/plans/${id}`, { method:'POST', body: JSON.stringify(plans[id]) }); await load(); setLoading(false) }
+  const savePayConf = async () => {
+    setLoading(true)
+    await api('/admin/payment-config', { method: 'POST', body: JSON.stringify(payConf) })
+    setLoading(false)
+    alert('Configurações de pagamento salvas')
+  }
   return (
     <div className="grid">
       <div className="h1">Administração</div>
+      <div className="card">
+        <div className="h2">Configurações de Recebimento (PIX)</div>
+        <div className="grid cols-2" style={{marginTop:12}}>
+            <input className="input" placeholder="Chave PIX" value={payConf.pixKey} onChange={e=>setPayConf(p=>({...p, pixKey:e.target.value}))} />
+            <input className="input" placeholder="Nome do Beneficiário" value={payConf.pixName} onChange={e=>setPayConf(p=>({...p, pixName:e.target.value}))} />
+            <textarea className="input" placeholder="Instruções adicionais (ex: banco, tipo de chave)" style={{gridColumn:'span 2', height:80}} value={payConf.instructions} onChange={e=>setPayConf(p=>({...p, instructions:e.target.value}))} />
+            <button className="btn primary" onClick={savePayConf} disabled={loading}>Salvar Configurações</button>
+        </div>
+      </div>
       <div className="grid" style={{gridTemplateColumns:'repeat(3, minmax(0, 1fr))', gap:16}}>
         <div className="tile primary">
           <div className="label">Usuários ativos</div>
@@ -853,6 +883,60 @@ function Admin() {
             })}
           </tbody>
         </table>
+      </div>
+    </div>
+  )
+}
+
+function CheckoutModal({ plan, onClose, onConfirm }: { plan: any, onClose: ()=>void, onConfirm: ()=>void }) {
+  const [conf, setConf] = useState<{pixKey:string; pixName:string; instructions:string}>()
+  useEffect(() => { api<{pixKey:string; pixName:string; instructions:string}>('/public/payment-config').then(setConf) }, [])
+  return (
+    <div className="modal open" onClick={onClose}>
+      <div className="sheet" onClick={e=>e.stopPropagation()}>
+        <div className="h2">Assinar Plano {plan.name}</div>
+        <div className="muted" style={{marginBottom:16}}>Para ativar seu plano, faça o pagamento via PIX:</div>
+        {conf ? (
+            <div className="card" style={{background:'var(--bg)', border:'1px solid var(--border)'}}>
+                <div className="label">Chave PIX</div>
+                <div className="h2" style={{color:'var(--primary)', marginBottom:8, wordBreak:'break-all'}}>{conf.pixKey || 'Não configurada'}</div>
+                <div className="label">Beneficiário</div>
+                <div className="value" style={{marginBottom:8}}>{conf.pixName || '-'}</div>
+                {conf.instructions && <div className="muted">{conf.instructions}</div>}
+            </div>
+        ) : <div className="muted">Carregando dados de pagamento...</div>}
+        <div className="row" style={{marginTop:24, justifyContent:'space-between'}}>
+            <button className="btn" onClick={onClose}>Cancelar</button>
+            <button className="btn primary" onClick={onConfirm}>Já fiz o PIX</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function PlansModal({ onClose, onSelect }: { onClose: ()=>void, onSelect: (p:any)=>void }) {
+  const [plans, setPlans] = useState<any>()
+  useEffect(() => { api('/public/plans').then(setPlans) }, [])
+  const ids = ['gratis','basico','elite'] as const
+  return (
+    <div className="modal open" onClick={onClose}>
+      <div className="sheet" style={{maxWidth:900, width:'95%'}} onClick={e=>e.stopPropagation()}>
+        <div className="row" style={{justifyContent:'space-between', marginBottom:20}}>
+            <div className="h2">Escolha um Plano</div>
+            <button className="btn" onClick={onClose}>Fechar</button>
+        </div>
+        <div className="grid" style={{gridTemplateColumns:'repeat(auto-fit, minmax(250px, 1fr))', gap:16}}>
+            {plans && ids.map(pid => {
+                const p = plans[pid]
+                return (
+                    <div key={pid} className="card" style={{border: pid==='basico'?'1px solid var(--primary)':'1px solid var(--border)'}}>
+                        <div className="h2">{p.name}</div>
+                        <div className="h1" style={{fontSize:24}}>{formatBRL(p.monthlyPrice)}<span className="muted" style={{fontSize:14}}>/mês</span></div>
+                        <button className="btn primary" style={{marginTop:12, width:'100%', justifyContent:'center'}} onClick={()=>onSelect({...p, id:pid})}>Escolher</button>
+                    </div>
+                )
+            })}
+        </div>
       </div>
     </div>
   )
