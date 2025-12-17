@@ -34,9 +34,27 @@ const defaultPlans = {
     promo: ''
   }
 }
+
+// LowDB Setup with Error Handling for Read-Only Environments (Vercel)
 const db = new Low(adapter, { products: [], customers: [], services: [], sales: [], quotes: [], users: [], sessions: [], accessLogs: [], supportEvents: [], plans: defaultPlans, paymentConfig: { pixKey: '', pixName: '', instructions: '' } })
-await db.read()
+
+// Override write to be safe
+const originalWrite = db.write.bind(db)
+db.write = async () => {
+  try {
+    await originalWrite()
+  } catch (e) {
+    console.log('LowDB write error (ignoring):', e.message)
+  }
+}
+
+try {
+  await db.read()
+} catch (e) {
+  console.log('LowDB read error (ignoring):', e.message)
+}
 db.data ||= { products: [], customers: [], services: [], sales: [], quotes: [], users: [], sessions: [], accessLogs: [], supportEvents: [], plans: defaultPlans, paymentConfig: { pixKey: '', pixName: '', instructions: '' } }
+
 if (!db.data.plans) { db.data.plans = defaultPlans; await db.write() }
 if (!db.data.paymentConfig) { db.data.paymentConfig = { pixKey: '', pixName: '', instructions: '' }; await db.write() }
 
@@ -223,6 +241,9 @@ app.post('/api/auth/login', async (req, res) => {
   if (!ok) return res.status(401).send('Credenciais inválidas')
   const token = await store.createSession(user.id)
   res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, plan: user.plan } })
+})
+app.get('/api/payment-config', async (req, res) => {
+  res.json(await store.getPaymentConfig())
 })
 app.get('/api/auth/me', (req, res) => {
   const t = getAuthToken(req)
@@ -543,6 +564,10 @@ app.post('/api/admin/users/:id/status', requireAuth, requireAdmin, async (req, r
   res.json({ ok: true })
 })
 
+app.get('/api/admin/users', requireAuth, requireAdmin, async (req, res) => {
+  res.json(await store.listUsers())
+})
+
 app.get('/api/admin/access-logs', requireAuth, requireAdmin, async (req, res) => {
   const limit = Math.max(1, Math.min(1000, Number(req.query.limit)||200))
   const logs = await store.listAccessLogs(limit)
@@ -606,4 +631,8 @@ app.post('/api/support/events', requireAuth, requireAdmin, async (req, res) => {
 })
 
 const port = process.env.PORT || 8080
-app.listen(port, () => console.log(`API em http://localhost:${port}`))
+if (!process.env.VERCEL) {
+  app.listen(port, () => console.log(`API em http://localhost:${port}`))
+}
+
+export default app
