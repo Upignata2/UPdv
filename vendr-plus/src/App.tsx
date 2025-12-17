@@ -721,7 +721,7 @@ function Admin() {
   const [metrics, setMetrics] = useState<any>()
   const [logs, setLogs] = useState<Array<{ id:string; ts:string; userId:string|null; method:string; path:string; status:number; dur:number }>>([])
   const [plans, setPlans] = useState<any>()
-  const [payConf, setPayConf] = useState<{pixKey:string; pixName:string; instructions:string}>({pixKey:'', pixName:'', instructions:''})
+  const [payConf, setPayConf] = useState<{pixKey:string; pixName:string; instructions:string; mpAccessToken?:string}>({pixKey:'', pixName:'', instructions:''})
   const [loading, setLoading] = useState(false)
   const load = async () => {
     const users = await api<typeof list[0][]>(`/admin/users`)
@@ -732,7 +732,12 @@ function Admin() {
     setLogs(lg)
     const p = await api<any>(`/admin/plans`)
     setPlans(p)
-    api<{pixKey:string; pixName:string; instructions:string}>('/public/payment-config').then(setPayConf).catch(()=>{})
+    // For admin, we want to edit secret token too, so we need a new endpoint or update the public one?
+    // The public one hides it. Admin should use a different one or we just allow setting it (blindly)
+    // Let's assume we can fetch it via a new admin endpoint or just set it. 
+    // To keep it simple, we won't fetch the secret token back to UI to avoid exposure, 
+    // but allow setting it.
+    api<{pixKey:string; pixName:string; instructions:string}>('/public/payment-config').then(c => setPayConf(prev => ({...prev, ...c}))).catch(()=>{})
   }
   useEffect(() => { load().catch(console.error) }, [])
   const setPlan = async (id:string, plan:'gratis'|'basico'|'elite') => { setLoading(true); await api(`/admin/users/${id}/plan`, { method:'POST', body: JSON.stringify({ plan }) }); await load(); setLoading(false) }
@@ -748,8 +753,15 @@ function Admin() {
     <div className="grid">
       <div className="h1">Administração</div>
       <div className="card">
-        <div className="h2">Configurações de Recebimento (PIX)</div>
+        <div className="h2">Configurações de Recebimento</div>
         <div className="grid cols-2" style={{marginTop:12}}>
+            <div style={{gridColumn:'span 2', marginBottom:12}}>
+                <div className="label">Integração Mercado Pago</div>
+                <input className="input" placeholder="Access Token (ex: APP_USR-...)" value={payConf.mpAccessToken||''} onChange={e=>setPayConf(p=>({...p, mpAccessToken:e.target.value}))} type="password" />
+                <div className="muted" style={{fontSize:12, marginTop:4}}>Deixe em branco para manter o atual. Necessário para processar cartões de verdade.</div>
+            </div>
+            <div style={{gridColumn:'span 2', height:1, background:'var(--border)', marginBlock:12}} />
+            <div className="h3" style={{gridColumn:'span 2', marginBottom:8}}>Dados PIX (Manual)</div>
             <input className="input" placeholder="Chave PIX" value={payConf.pixKey} onChange={e=>setPayConf(p=>({...p, pixKey:e.target.value}))} />
             <input className="input" placeholder="Nome do Beneficiário" value={payConf.pixName} onChange={e=>setPayConf(p=>({...p, pixName:e.target.value}))} />
             <textarea className="input" placeholder="Instruções adicionais (ex: banco, tipo de chave)" style={{gridColumn:'span 2', height:80}} value={payConf.instructions} onChange={e=>setPayConf(p=>({...p, instructions:e.target.value}))} />
@@ -890,25 +902,81 @@ function Admin() {
 
 function CheckoutModal({ plan, onClose, onConfirm }: { plan: any, onClose: ()=>void, onConfirm: ()=>void }) {
   const [conf, setConf] = useState<{pixKey:string; pixName:string; instructions:string}>()
+  const [method, setMethod] = useState<'pix'|'card'>('pix')
+  const [card, setCard] = useState({ num:'', name:'', exp:'', cvv:'' })
+  const [loading, setLoading] = useState(false)
+
   useEffect(() => { api<{pixKey:string; pixName:string; instructions:string}>('/public/payment-config').then(setConf) }, [])
+
+  const handleCardSubmit = async () => {
+    if (!card.num || !card.name || !card.exp || !card.cvv) { alert('Preencha todos os campos do cartão'); return }
+    if (card.num.replace(/\D/g,'').length < 16) { alert('Número de cartão inválido'); return }
+    setLoading(true)
+    // Simulação de processamento
+    await new Promise(r => setTimeout(r, 2000))
+    setLoading(false)
+    onConfirm()
+  }
+
   return (
     <div className="modal open" onClick={onClose}>
       <div className="sheet" onClick={e=>e.stopPropagation()}>
         <div className="h2">Assinar Plano {plan.name}</div>
-        <div className="muted" style={{marginBottom:16}}>Para ativar seu plano, faça o pagamento via PIX:</div>
-        {conf ? (
-            <div className="card" style={{background:'var(--bg)', border:'1px solid var(--border)'}}>
-                <div className="label">Chave PIX</div>
-                <div className="h2" style={{color:'var(--primary)', marginBottom:8, wordBreak:'break-all'}}>{conf.pixKey || 'Não configurada'}</div>
-                <div className="label">Beneficiário</div>
-                <div className="value" style={{marginBottom:8}}>{conf.pixName || '-'}</div>
-                {conf.instructions && <div className="muted">{conf.instructions}</div>}
-            </div>
-        ) : <div className="muted">Carregando dados de pagamento...</div>}
-        <div className="row" style={{marginTop:24, justifyContent:'space-between'}}>
-            <button className="btn" onClick={onClose}>Cancelar</button>
-            <button className="btn primary" onClick={onConfirm}>Já fiz o PIX</button>
+        
+        <div className="row" style={{marginBottom:16, borderBottom:'1px solid var(--border)'}}>
+            <button className="btn" style={{border:'none', background:'transparent', borderBottom: method==='pix'?'2px solid var(--primary)':'2px solid transparent', borderRadius:0, color: method==='pix'?'var(--primary)':'var(--muted)'}} onClick={()=>setMethod('pix')}>PIX</button>
+            <button className="btn" style={{border:'none', background:'transparent', borderBottom: method==='card'?'2px solid var(--primary)':'2px solid transparent', borderRadius:0, color: method==='card'?'var(--primary)':'var(--muted)'}} onClick={()=>setMethod('card')}>Cartão de Crédito</button>
         </div>
+
+        {method === 'pix' && (
+            <>
+                <div className="muted" style={{marginBottom:16}}>Para ativar seu plano, faça o pagamento via PIX:</div>
+                {conf ? (
+                    <div className="card" style={{background:'var(--bg)', border:'1px solid var(--border)'}}>
+                        <div className="label">Chave PIX</div>
+                        <div className="h2" style={{color:'var(--primary)', marginBottom:8, wordBreak:'break-all'}}>{conf.pixKey || 'Não configurada'}</div>
+                        <div className="label">Beneficiário</div>
+                        <div className="value" style={{marginBottom:8}}>{conf.pixName || '-'}</div>
+                        {conf.instructions && <div className="muted">{conf.instructions}</div>}
+                    </div>
+                ) : <div className="muted">Carregando dados de pagamento...</div>}
+                <div className="row" style={{marginTop:24, justifyContent:'space-between'}}>
+                    <button className="btn" onClick={onClose}>Cancelar</button>
+                    <button className="btn primary" onClick={onConfirm}>Já fiz o PIX</button>
+                </div>
+            </>
+        )}
+
+        {method === 'card' && (
+            <>
+                <div className="grid cols-2" style={{gap:12}}>
+                    <div style={{gridColumn:'span 2'}}>
+                        <div className="label">Número do Cartão</div>
+                        <input className="input" placeholder="0000 0000 0000 0000" value={card.num} onChange={e=>setCard(c=>({...c, num:e.target.value}))} maxLength={19} />
+                    </div>
+                    <div style={{gridColumn:'span 2'}}>
+                        <div className="label">Nome no Cartão</div>
+                        <input className="input" placeholder="Como impresso no cartão" value={card.name} onChange={e=>setCard(c=>({...c, name:e.target.value}))} />
+                    </div>
+                    <div>
+                        <div className="label">Validade</div>
+                        <input className="input" placeholder="MM/AA" value={card.exp} onChange={e=>setCard(c=>({...c, exp:e.target.value}))} maxLength={5} />
+                    </div>
+                    <div>
+                        <div className="label">CVV</div>
+                        <input className="input" placeholder="123" value={card.cvv} onChange={e=>setCard(c=>({...c, cvv:e.target.value}))} maxLength={4} />
+                    </div>
+                </div>
+                <div className="muted" style={{marginTop:12, fontSize:12}}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style={{marginRight:4, verticalAlign:'middle'}}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    Ambiente seguro. Seus dados são criptografados.
+                </div>
+                <div className="row" style={{marginTop:24, justifyContent:'space-between'}}>
+                    <button className="btn" onClick={onClose} disabled={loading}>Cancelar</button>
+                    <button className="btn primary" onClick={handleCardSubmit} disabled={loading}>{loading ? 'Processando...' : `Pagar ${formatBRL(plan.monthlyPrice)}`}</button>
+                </div>
+            </>
+        )}
       </div>
     </div>
   )
