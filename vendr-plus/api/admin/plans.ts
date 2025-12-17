@@ -34,9 +34,9 @@ export default async function handler(req: any, res: any) {
   } catch (e: any) {
     // Fallback to defaults if DB fails
     const defaults = {
-        gratis: { name: 'Grátis', monthlyPrice: 0, annualPrice: 0, limits: { products: 10, customers: 10 }, features: { coupon: false, nota: false, support: 'none' }, promo: '' },
-        basico: { name: 'Básico', monthlyPrice: 29.90, annualPrice: 299.90, limits: { products: 100, customers: 100 }, features: { coupon: true, nota: false, support: 'limited' }, promo: '' },
-        elite: { name: 'Elite', monthlyPrice: 99.90, annualPrice: 999.90, limits: { products: null, customers: null }, features: { coupon: true, nota: true, support: 'full' }, promo: 'Recomendado' }
+        gratis: { name: 'Grátis', monthlyPrice: 0, annualPrice: 0, limits: { products: 30, customers: 30 }, features: { coupon: false, nota: false, support: 'none' }, promo: '' },
+        basico: { name: 'Básico', monthlyPrice: 19.90, annualPrice: 209.90, limits: { products: 150, customers: 150 }, features: { coupon: true, nota: false, support: 'limited' }, promo: '' },
+        elite: { name: 'Elite', monthlyPrice: 39.90, annualPrice: 409.90, limits: { products: null, customers: null }, features: { coupon: true, nota: true, support: 'full' }, promo: 'Recomendado' }
     }
     console.error('Admin Plans DB Error (using fallback):', e)
     res.status(200).json(defaults)

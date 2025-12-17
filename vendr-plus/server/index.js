@@ -13,22 +13,22 @@ const defaultPlans = {
     name: 'Grátis',
     monthlyPrice: 0,
     annualPrice: 0,
-    limits: { products: 80, customers: 80 },
+    limits: { products: 30, customers: 30 },
     features: { coupon: false, nota: false, support: 'none' },
     promo: ''
   },
   basico: {
     name: 'Básico',
-    monthlyPrice: 49.9,
-    annualPrice: 499,
-    limits: { products: 200, customers: 200 },
+    monthlyPrice: 19.9,
+    annualPrice: 209.9,
+    limits: { products: 150, customers: 150 },
     features: { coupon: true, nota: true, support: 'limited' },
     promo: ''
   },
   elite: {
     name: 'Elite',
-    monthlyPrice: 99.9,
-    annualPrice: 999,
+    monthlyPrice: 39.9,
+    annualPrice: 409.9,
     limits: { products: null, customers: null },
     features: { coupon: true, nota: true, support: 'full' },
     promo: ''
