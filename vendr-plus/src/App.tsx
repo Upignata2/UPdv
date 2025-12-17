@@ -912,10 +912,15 @@ function CheckoutModal({ plan, onClose, onConfirm }: { plan: any, onClose: ()=>v
     if (!card.num || !card.name || !card.exp || !card.cvv) { alert('Preencha todos os campos do cartão'); return }
     if (card.num.replace(/\D/g,'').length < 16) { alert('Número de cartão inválido'); return }
     setLoading(true)
-    // Simulação de processamento
-    await new Promise(r => setTimeout(r, 2000))
-    setLoading(false)
-    onConfirm()
+    try {
+        await api('/pay/card', { method: 'POST', body: JSON.stringify({ planId: plan.id, card }) })
+        alert('Pagamento processado com sucesso!')
+        location.reload()
+    } catch (e:any) {
+        alert('Erro no pagamento: ' + (e.message || 'Tente novamente'))
+    } finally {
+        setLoading(false)
+    }
   }
 
   return (
