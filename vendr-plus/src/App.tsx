@@ -742,7 +742,18 @@ function Admin() {
   useEffect(() => { load().catch(console.error) }, [])
   const setPlan = async (id:string, plan:'gratis'|'basico'|'elite') => { setLoading(true); await api(`/admin/users/${id}/plan`, { method:'POST', body: JSON.stringify({ plan }) }); await load(); setLoading(false) }
   const setStatus = async (id:string, active:boolean) => { setLoading(true); await api(`/admin/users/${id}/status`, { method:'POST', body: JSON.stringify({ active }) }); await load(); setLoading(false) }
-  const savePlan = async (id:'gratis'|'basico'|'elite') => { setLoading(true); await api(`/admin/plans/${id}`, { method:'POST', body: JSON.stringify(plans[id]) }); await load(); setLoading(false) }
+  const savePlan = async (id:'gratis'|'basico'|'elite') => { 
+    setLoading(true)
+    try {
+        await api(`/admin/plans/${id}`, { method:'POST', body: JSON.stringify(plans[id]) })
+        alert('Plano salvo com sucesso!')
+        await load()
+    } catch (e:any) {
+        alert('Erro ao salvar plano: ' + (e.message || 'Erro desconhecido'))
+    } finally {
+        setLoading(false)
+    }
+  }
   const savePayConf = async () => {
     setLoading(true)
     await api('/admin/payment-config', { method: 'POST', body: JSON.stringify(payConf) })
@@ -831,48 +842,63 @@ function Admin() {
       <div className="card">
         <div className="h2">Planos</div>
         {plans && (
-          <table className="table" style={{marginTop:12}}>
-            <thead>
-              <tr><th>Plano</th><th>Mensal</th><th>Anual</th><th>Limites</th><th>Recursos</th><th>Promo</th><th>Ações</th></tr></thead>
-            <tbody>
-              {(['gratis','basico','elite'] as const).map(pid => (
-                <tr key={pid}>
-                  <td>
-                    <input className="input" value={plans[pid].name} onChange={e=>setPlans((prev:any)=>({ ...prev, [pid]: { ...prev[pid], name: e.target.value } }))} />
-                  </td>
-                  <td>
-                    <input className="input" type="number" value={String(plans[pid].monthlyPrice)} onChange={e=>setPlans((prev:any)=>({ ...prev, [pid]: { ...prev[pid], monthlyPrice: Number(e.target.value) } }))} />
-                  </td>
-                  <td>
-                    <input className="input" type="number" value={String(plans[pid].annualPrice)} onChange={e=>setPlans((prev:any)=>({ ...prev, [pid]: { ...prev[pid], annualPrice: Number(e.target.value) } }))} />
-                  </td>
-                  <td>
-                    <div className="row">
-                      <input className="input" placeholder="Produtos" type="number" value={plans[pid].limits.products==null?'':String(plans[pid].limits.products)} onChange={e=>setPlans((prev:any)=>({ ...prev, [pid]: { ...prev[pid], limits: { ...prev[pid].limits, products: e.target.value===''? null : Number(e.target.value) } } }))} />
-                      <input className="input" placeholder="Clientes" type="number" value={plans[pid].limits.customers==null?'':String(plans[pid].limits.customers)} onChange={e=>setPlans((prev:any)=>({ ...prev, [pid]: { ...prev[pid], limits: { ...prev[pid].limits, customers: e.target.value===''? null : Number(e.target.value) } } }))} />
-                    </div>
-                  </td>
-                  <td>
-                    <div className="row">
-                      <label className="row"><input type="checkbox" checked={!!plans[pid].features.coupon} onChange={e=>setPlans((prev:any)=>({ ...prev, [pid]: { ...prev[pid], features: { ...prev[pid].features, coupon: e.target.checked } } }))} /> Cupom</label>
-                      <label className="row"><input type="checkbox" checked={!!plans[pid].features.nota} onChange={e=>setPlans((prev:any)=>({ ...prev, [pid]: { ...prev[pid], features: { ...prev[pid].features, nota: e.target.checked } } }))} /> Nota</label>
-                      <select className="select" value={plans[pid].features.support} onChange={e=>setPlans((prev:any)=>({ ...prev, [pid]: { ...prev[pid], features: { ...prev[pid].features, support: e.target.value } } }))}>
-                        <option value="none">Sem suporte</option>
-                        <option value="limited">Limitado</option>
-                        <option value="full">Completo</option>
-                      </select>
-                    </div>
-                  </td>
-                  <td>
-                    <input className="input" placeholder="Promoções/observações" value={plans[pid].promo||''} onChange={e=>setPlans((prev:any)=>({ ...prev, [pid]: { ...prev[pid], promo: e.target.value } }))} />
-                  </td>
-                  <td>
-                    <button className="btn" onClick={()=>savePlan(pid)} disabled={loading}>Salvar</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16, marginTop: 12 }}>
+            {(['gratis', 'basico', 'elite'] as const).map(pid => (
+              <div key={pid} className="card" style={{ border: '1px solid var(--border)', background: 'var(--bg)', padding: 16 }}>
+                <div className="h3" style={{ marginBottom: 12, textTransform: 'capitalize', color: 'var(--primary)' }}>{pid}</div>
+                
+                <div className="label">Nome do Plano</div>
+                <input className="input" value={plans[pid].name} onChange={e => setPlans((prev: any) => ({ ...prev, [pid]: { ...prev[pid], name: e.target.value } }))} style={{ marginBottom: 12 }} />
+
+                <div className="grid cols-2" style={{ gap: 12, marginBottom: 12 }}>
+                  <div>
+                    <div className="label">Preço Mensal</div>
+                    <input className="input" type="number" value={String(plans[pid].monthlyPrice)} onChange={e => setPlans((prev: any) => ({ ...prev, [pid]: { ...prev[pid], monthlyPrice: Number(e.target.value) } }))} />
+                  </div>
+                  <div>
+                    <div className="label">Preço Anual</div>
+                    <input className="input" type="number" value={String(plans[pid].annualPrice)} onChange={e => setPlans((prev: any) => ({ ...prev, [pid]: { ...prev[pid], annualPrice: Number(e.target.value) } }))} />
+                  </div>
+                </div>
+
+                <div className="grid cols-2" style={{ gap: 12, marginBottom: 12 }}>
+                  <div>
+                    <div className="label">Lim. Produtos</div>
+                    <input className="input" placeholder="∞" type="number" value={plans[pid].limits.products == null ? '' : String(plans[pid].limits.products)} onChange={e => setPlans((prev: any) => ({ ...prev, [pid]: { ...prev[pid], limits: { ...prev[pid].limits, products: e.target.value === '' ? null : Number(e.target.value) } } }))} />
+                  </div>
+                  <div>
+                    <div className="label">Lim. Clientes</div>
+                    <input className="input" placeholder="∞" type="number" value={plans[pid].limits.customers == null ? '' : String(plans[pid].limits.customers)} onChange={e => setPlans((prev: any) => ({ ...prev, [pid]: { ...prev[pid], limits: { ...prev[pid].limits, customers: e.target.value === '' ? null : Number(e.target.value) } } }))} />
+                  </div>
+                </div>
+
+                <div className="label">Recursos</div>
+                <div className="row" style={{ gap: 16, marginBottom: 12 }}>
+                  <label className="row" style={{ cursor: 'pointer' }}>
+                    <input type="checkbox" checked={!!plans[pid].features.coupon} onChange={e => setPlans((prev: any) => ({ ...prev, [pid]: { ...prev[pid], features: { ...prev[pid].features, coupon: e.target.checked } } }))} style={{ marginRight: 8 }} />
+                    Cupom
+                  </label>
+                  <label className="row" style={{ cursor: 'pointer' }}>
+                    <input type="checkbox" checked={!!plans[pid].features.nota} onChange={e => setPlans((prev: any) => ({ ...prev, [pid]: { ...prev[pid], features: { ...prev[pid].features, nota: e.target.checked } } }))} style={{ marginRight: 8 }} />
+                    Nota Fiscal
+                  </label>
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <div className="label">Suporte</div>
+                  <select className="select" value={plans[pid].features.support} onChange={e => setPlans((prev: any) => ({ ...prev, [pid]: { ...prev[pid], features: { ...prev[pid].features, support: e.target.value } } }))}>
+                    <option value="none">Sem suporte</option>
+                    <option value="limited">Limitado</option>
+                    <option value="full">Completo</option>
+                  </select>
+                </div>
+
+                <div className="label">Texto Promocional</div>
+                <input className="input" placeholder="Ex: Recomendado" value={plans[pid].promo || ''} onChange={e => setPlans((prev: any) => ({ ...prev, [pid]: { ...prev[pid], promo: e.target.value } }))} style={{ marginBottom: 16 }} />
+
+                <button className="btn primary" style={{ width: '100%', justifyContent: 'center' }} onClick={() => savePlan(pid)} disabled={loading}>Salvar Alterações</button>
+              </div>
+            ))}
+          </div>
         )}
       </div>
       <div className="card">
