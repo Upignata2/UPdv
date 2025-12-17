@@ -59,6 +59,6 @@ export default async function handler(req: any, res: any) {
   } catch (e: any) {
     console.error('Payment Config DB Error (using fallback):', e)
     // Return fake success so UI doesn't crash
-    res.status(200).json({ ok: true })
+    res.status(200).json({ ok: true, simulated: true })
   }
 }

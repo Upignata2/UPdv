@@ -742,23 +742,31 @@ function Admin() {
   useEffect(() => { load().catch(console.error) }, [])
   const setPlan = async (id:string, plan:'gratis'|'basico'|'elite') => { setLoading(true); await api(`/admin/users/${id}/plan`, { method:'POST', body: JSON.stringify({ plan }) }); await load(); setLoading(false) }
   const setStatus = async (id:string, active:boolean) => { setLoading(true); await api(`/admin/users/${id}/status`, { method:'POST', body: JSON.stringify({ active }) }); await load(); setLoading(false) }
-  const savePlan = async (id:'gratis'|'basico'|'elite') => { 
+  const savePlan = async (id: 'gratis' | 'basico' | 'elite') => {
     setLoading(true)
     try {
-        await api(`/admin/plans/${id}`, { method:'POST', body: JSON.stringify(plans[id]) })
+      const res = await api<any>(`/admin/plans/${id}`, { method: 'POST', body: JSON.stringify(plans[id]) })
+      if (res.simulated) {
+        alert('Plano salvo (Modo Offline/Simulação)')
+      } else {
         alert('Plano salvo com sucesso!')
         await load()
-    } catch (e:any) {
-        alert('Erro ao salvar plano: ' + (e.message || 'Erro desconhecido'))
+      }
+    } catch (e: any) {
+      alert('Erro ao salvar plano: ' + (e.message || 'Erro desconhecido'))
     } finally {
-        setLoading(false)
+      setLoading(false)
     }
   }
   const savePayConf = async () => {
     setLoading(true)
-    await api('/admin/payment-config', { method: 'POST', body: JSON.stringify(payConf) })
+    const res = await api<any>('/admin/payment-config', { method: 'POST', body: JSON.stringify(payConf) })
     setLoading(false)
-    alert('Configurações de pagamento salvas')
+    if (res.simulated) {
+      alert('Configurações salvas (Modo Offline/Simulação)')
+    } else {
+      alert('Configurações de pagamento salvas')
+    }
   }
   return (
     <div className="grid">
