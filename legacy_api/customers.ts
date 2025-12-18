@@ -29,6 +29,13 @@ export default async function handler(req: any, res: any) {
       res.status(200).json(items)
       return
     }
+    if (req.method === 'POST') {
+      const { ownerId, name, email } = req.body
+      const q = 'INSERT INTO customers (owner_id, name, email) VALUES ($1, $2, $3) RETURNING id'
+      const { rows } = await getPool().query(q, [ownerId || 1, name, email]) // ownerId hardcoded to 1 as a placeholder if not provided
+      res.status(201).json({ id: rows[0].id, message: 'Cliente cadastrado com sucesso' })
+      return
+    }
   } catch (e: any) {
     console.error('Customers DB Error (using fallback):', e)
     res.status(200).json([])

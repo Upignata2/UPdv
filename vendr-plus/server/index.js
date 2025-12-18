@@ -522,7 +522,7 @@ app.post('/api/admin/payment-config', requireAuth, requireAdmin, async (req, res
   res.json({ ok: true })
 })
 app.get('/api/admin/plans', requireAuth, requireAdmin, async (req, res) => { res.json(await store.getPlans()) })
-app.post('/api/admin/plans/:id', requireAuth, requireAdmin, async (req, res) => {
+app.put('/api/admin/plans/:id', requireAuth, requireAdmin, async (req, res) => {
   const id = req.params.id
   if (!['gratis','basico','elite'].includes(id)) return res.status(400).send('Plano inválido')
   const payload = req.body || {}

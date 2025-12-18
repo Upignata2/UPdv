@@ -745,7 +745,7 @@ function Admin() {
   const savePlan = async (id: 'gratis' | 'basico' | 'elite') => {
     setLoading(true)
     try {
-      const res = await api<any>(`/admin/plans/${id}`, { method: 'POST', body: JSON.stringify(plans[id]) })
+      const res = await api<any>(`/admin/plans/${id}`, { method: 'PUT', body: JSON.stringify(plans[id]) })
       if (res.simulated) {
         alert('Plano salvo (Modo Offline/Simulação)')
       } else {

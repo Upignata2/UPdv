@@ -32,6 +32,13 @@ export default async function handler(req: any, res: any) {
       res.status(200).json(items)
       return
     }
+    if (req.method === 'POST') {
+      const { ownerId, name, sku, barcode, price, stock } = req.body
+      const q = 'INSERT INTO products (owner_id, name, sku, barcode, price, stock) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id'
+      const { rows } = await getPool().query(q, [ownerId || 1, name, sku, barcode, price, stock]) // ownerId hardcoded to 1 as a placeholder if not provided
+      res.status(201).json({ id: rows[0].id, message: 'Produto cadastrado com sucesso' })
+      return
+    }
     // Handle other methods...
   } catch (e: any) {
     // Fallback to mock data if DB fails
