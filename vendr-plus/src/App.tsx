@@ -13,7 +13,7 @@ export function App() {
       return legacy ? JSON.parse(legacy) : null
     } catch { return null }
   })
-  const [planConf, setPlanConf] = useState<{ name:string; monthlyPrice:number; annualPrice:number; limits:{ products:number|null; customers:number|null }; features:{ coupon:boolean; nota:boolean; support:'none'|'limited'|'full' }; promo?:string } | null>(null)
+  const [planConf, setPlanConf] = useState<{ name:string; description?:string; monthlyPrice:number; annualPrice:number; limits:{ products:number|null; customers:number|null }; features:{ coupon:boolean; nota:boolean; support:'none'|'limited'|'full' }; promo?:string } | null>(null)
 
   useEffect(() => {
     const hash = (location.hash.replace('#', '') || 'welcome') as Route
@@ -38,7 +38,7 @@ export function App() {
   }, [])
   useEffect(() => {
     if (user?.plan) {
-      api<{ name:string; monthlyPrice:number; annualPrice:number; limits:{ products:number|null; customers:number|null }; features:{ coupon:boolean; nota:boolean; support:'none'|'limited'|'full' }; promo?:string }>(`/plans/${user.plan}`).then(setPlanConf).catch(()=>setPlanConf(null))
+      api<{ name:string; description?:string; monthlyPrice:number; annualPrice:number; limits:{ products:number|null; customers:number|null }; features:{ coupon:boolean; nota:boolean; support:'none'|'limited'|'full' }; promo?:string }>(`/plans/${user.plan}`).then(setPlanConf).catch(()=>setPlanConf(null))
     } else {
       setPlanConf(null)
     }
@@ -530,7 +530,7 @@ function Products({ user, plan }:{ user:{ id:string; name:string; email?:string;
   )
 }
 
-function Customers({ user, plan }:{ user:{ id:string; name:string; email?:string; role?:'admin'|'user'; plan?:'gratis'|'basico'|'elite' }; plan: { name:string; monthlyPrice:number; annualPrice:number; limits:{ products:number|null; customers:number|null }; features:{ coupon:boolean; nota:boolean; support:'none'|'limited'|'full' }; promo?:string } | null }) {
+function Customers({ user, plan }:{ user:{ id:string; name:string; email?:string; role?:'admin'|'user'; plan?:'gratis'|'basico'|'elite' }; plan: { name:string; description?:string; monthlyPrice:number; annualPrice:number; limits:{ products:number|null; customers:number|null }; features:{ coupon:boolean; nota:boolean; support:'none'|'limited'|'full' }; promo?:string } | null }) {
   const [list, setList] = useState<Customer[]>([])
   const [form, setForm] = useState<Partial<Customer>>({})
   const [loading, setLoading] = useState(false)
@@ -857,6 +857,12 @@ function Admin() {
                 
                 <div className="label">Nome do Plano</div>
                 <input className="input" value={plans[pid].name} onChange={e => setPlans((prev: any) => ({ ...prev, [pid]: { ...prev[pid], name: e.target.value } }))} style={{ marginBottom: 12 }} />
+
+
+                <div className="label">Descrição</div>
+                <textarea className="input" value={plans[pid].description || ''} onChange={e => setPlans((prev: any) => ({ ...prev, [pid]: { ...prev[pid], description: e.target.value } }))} style={{ marginBottom: 12 }} />
+
+
 
                 <div className="grid cols-2" style={{ gap: 12, marginBottom: 12 }}>
                   <div>

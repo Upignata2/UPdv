@@ -351,6 +351,20 @@ app.post('/api/customers', requireAuth, async (req, res) => {
   const c = { id: nanoid(10), ownerId: req.userId, name, email: email||'' }
   db.data.customers.push(c); await db.write(); res.json(c)
 })
+app.put('/api/customers/:id', requireAuth, async (req, res) => {
+  const idx = db.data.customers.findIndex(c=>c.id===req.params.id)
+  if (idx<0) return res.status(404).send('Cliente não encontrado')
+  if (!isAdmin(req.userId) && db.data.customers[idx].ownerId !== req.userId) return res.status(403).send('Proibido')
+  db.data.customers[idx] = { ...db.data.customers[idx], ...req.body }
+  await db.write(); res.json(db.data.customers[idx])
+})
+app.delete('/api/customers/:id', requireAuth, async (req, res) => {
+  const idx = db.data.customers.findIndex(c=>c.id===req.params.id)
+  if (idx<0) return res.status(404).send('Cliente não encontrado')
+  if (!isAdmin(req.userId) && db.data.customers[idx].ownerId !== req.userId) return res.status(403).send('Proibido')
+  const [removed] = db.data.customers.splice(idx,1)
+  await db.write(); res.json(removed)
+})
 
 app.get('/api/sales', requireAuth, (req, res) => {
   const items = isAdmin(req.userId) ? db.data.sales : db.data.sales.filter(s=>s.ownerId===req.userId)
@@ -362,6 +376,7 @@ app.post('/api/sales', requireAuth, async (req, res) => {
   let total = 0
   const updates = []
   for (const it of items) {
+    if (!it.productId || !it.qty) return res.status(400).send('Item incompleto')
     const p = db.data.products.find(pp=>pp.id===it.productId)
     if (!p) return res.status(400).send('Produto inválido')
     if (p.stock < it.qty) return res.status(400).send('Estoque insuficiente')
@@ -373,6 +388,24 @@ app.post('/api/sales', requireAuth, async (req, res) => {
     db.data.products[idx].stock = u.newStock
   }
   const sale = { id: nanoid(12), ownerId: req.userId, customerId, items, total, createdAt: new Date().toISOString() }
+  // Geração do Cupom Fiscal Detalhado
+  const receipt = {
+    saleId: sale.id,
+    date: new Date().toLocaleDateString('pt-BR'),
+    time: new Date().toLocaleTimeString('pt-BR'),
+    items: items.map(item => {
+      const product = db.data.products.find(p => p.id === item.productId)
+      const name = product ? product.name : 'Produto Desconhecido'
+      return {
+        description: name,
+        quantity: item.qty,
+        unitPrice: item.price,
+        total: item.qty * item.price
+      }
+    }),
+    total: sale.total
+  }
+  sale.receipt = receipt
   db.data.sales.push(sale)
   await db.write()
   res.json(sale)
@@ -428,6 +461,46 @@ app.post('/api/quotes/:id/convert', requireAuth, async (req, res) => {
     db.data.products[idx].stock = u.newStock
   }
   const sale = { id: nanoid(12), ownerId: req.userId, customerId: q.customerId, items: q.items.filter(i=>i.kind==='product').map(i=>({ productId: i.refId, qty: i.qty, price: i.price })), total, createdAt: new Date().toISOString() }
+  // Geração do Cupom Fiscal Detalhado
+  const receipt = {
+    saleId: sale.id,
+    date: new Date().toLocaleDateString('pt-BR'),
+    time: new Date().toLocaleTimeString('pt-BR'),
+    items: q.items.map(item => {
+      const product = db.data.products.find(p => p.id === item.refId)
+      const service = db.data.services.find(s => s.id === item.refId)
+      const name = product ? product.name : (service ? service.name : 'Item Desconhecido')
+      const price = item.price || (product ? product.price : (service ? service.price : 0))
+      return {
+        description: name,
+        quantity: item.qty,
+        unitPrice: price,
+        total: item.qty * price
+      }
+    }),
+    total: sale.total
+  }
+  sale.receipt = receipt
+  // Geração do Cupom Fiscal Detalhado
+  const receipt = {
+    saleId: sale.id,
+    date: new Date().toLocaleDateString('pt-BR'),
+    time: new Date().toLocaleTimeString('pt-BR'),
+    items: q.items.map(item => {
+      const product = db.data.products.find(p => p.id === item.refId)
+      const service = db.data.services.find(s => s.id === item.refId)
+      const name = product ? product.name : (service ? service.name : 'Item Desconhecido')
+      const price = item.price || (product ? product.price : (service ? service.price : 0))
+      return {
+        description: name,
+        quantity: item.qty,
+        unitPrice: price,
+        total: item.qty * price
+      }
+    }),
+    total: sale.total
+  }
+  sale.receipt = receipt
   db.data.sales.push(sale)
   q.status = 'converted'
   await db.write()
@@ -445,6 +518,11 @@ app.get('/api/admin/users', requireAuth, requireAdmin, async (req, res) => {
   const base = await store.listUsers()
   const users = base.map(u=> ({ ...u, usage: mapCount(u.id) }))
   res.json(users)
+})
+app.post('/api/admin/payment-config', requireAuth, requireAdmin, async (req, res) => {
+  const conf = req.body || {}
+  await store.updatePaymentConfig(conf)
+  res.json({ ok: true, simulated: !process.env.DATABASE_URL })
 })
 app.get('/api/plans', requireAuth, async (req, res) => { res.json(await store.getPlans()) })
 app.get('/api/plans/:id', requireAuth, async (req, res) => { const p = await store.getPlanById(req.params.id); if (!p) return res.status(404).send('Plano não encontrado'); res.json(p) })
@@ -494,33 +572,12 @@ app.post('/api/pay/card', requireAuth, async (req, res) => {
       return res.status(500).send('Erro no processamento')
     }
   }
-
-  // Fallback / Simulation
+  
+  // Simulate payment success
   await store.setUserPlan(req.userId, planId)
-  res.json({ ok: true })
+  res.json({ ok: true, simulated: !conf.mpAccessToken })
 })
 
-app.post('/api/plans/upgrade', requireAuth, async (req, res) => {
-  const { planId } = req.body
-  if (!planId) return res.status(400).send('Plano obrigatório')
-  const plans = await store.getPlans()
-  if (!plans[planId]) return res.status(400).send('Plano inválido')
-  // In a real app, verify payment here.
-  // For now, we trust the user has paid manually.
-  await store.setUserPlan(req.userId, planId)
-  res.json({ ok: true })
-})
-app.post('/api/admin/payment-config', requireAuth, requireAdmin, async (req, res) => {
-  const { pixKey, pixName, instructions, mpAccessToken } = req.body
-  const current = await store.getFullPaymentConfig()
-  await store.updatePaymentConfig({ 
-    pixKey: String(pixKey||''), 
-    pixName: String(pixName||''), 
-    instructions: String(instructions||''),
-    mpAccessToken: String(mpAccessToken||current.mpAccessToken||'') // Preserve if not sent, or update
-  })
-  res.json({ ok: true })
-})
 app.get('/api/admin/plans', requireAuth, requireAdmin, async (req, res) => { res.json(await store.getPlans()) })
 app.put('/api/admin/plans/:id', requireAuth, requireAdmin, async (req, res) => {
   const id = req.params.id
@@ -529,6 +586,7 @@ app.put('/api/admin/plans/:id', requireAuth, requireAdmin, async (req, res) => {
   const curr = await store.getPlanById(id) || {}
   const updated = { ...curr }
   if (Object.prototype.hasOwnProperty.call(payload, 'name')) updated.name = String(payload.name)
+  if (Object.prototype.hasOwnProperty.call(payload, 'description')) updated.description = String(payload.description)
   if (Object.prototype.hasOwnProperty.call(payload, 'monthlyPrice')) updated.monthlyPrice = Number(payload.monthlyPrice)
   if (Object.prototype.hasOwnProperty.call(payload, 'annualPrice')) updated.annualPrice = Number(payload.annualPrice)
   if (payload.limits) {
@@ -563,11 +621,6 @@ app.post('/api/admin/users/:id/status', requireAuth, requireAdmin, async (req, r
   await store.setUserActive(req.params.id, !!active)
   res.json({ ok: true })
 })
-
-app.get('/api/admin/users', requireAuth, requireAdmin, async (req, res) => {
-  res.json(await store.listUsers())
-})
-
 app.get('/api/admin/access-logs', requireAuth, requireAdmin, async (req, res) => {
   const limit = Math.max(1, Math.min(1000, Number(req.query.limit)||200))
   const logs = await store.listAccessLogs(limit)
@@ -629,10 +682,8 @@ app.post('/api/support/events', requireAuth, requireAdmin, async (req, res) => {
   await db.write()
   res.json(ev)
 })
-
 const port = process.env.PORT || 8080
-if (!process.env.VERCEL) {
+if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
   app.listen(port, () => console.log(`API em http://localhost:${port}`))
 }
-
 export default app
