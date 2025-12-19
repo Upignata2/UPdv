@@ -263,6 +263,59 @@ app.get('/api/debug/auth', async (req, res) => {
   }
 })
 
+// Admin - reset database (DEV ONLY)
+app.post('/api/debug/reset-db', async (req, res) => {
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(403).send('Not available in production')
+  }
+  
+  try {
+    // Reset all data
+    db.data = {
+      products: [],
+      customers: [],
+      services: [],
+      sales: [],
+      quotes: [],
+      users: [],
+      sessions: [],
+      accessLogs: [],
+      supportEvents: [],
+      plans: {
+        gratis: {
+          name: 'Grátis',
+          monthlyPrice: 0,
+          annualPrice: 0,
+          limits: { products: 30, customers: 30 },
+          features: { coupon: false, nota: false, support: 'none' },
+          promo: ''
+        },
+        basico: {
+          name: 'Básico',
+          monthlyPrice: 19.9,
+          annualPrice: 209.9,
+          limits: { products: 150, customers: 150 },
+          features: { coupon: true, nota: true, support: 'limited' },
+          promo: ''
+        },
+        elite: {
+          name: 'Elite',
+          monthlyPrice: 39.9,
+          annualPrice: 409.9,
+          limits: { products: null, customers: null },
+          features: { coupon: true, nota: true, support: 'full' },
+          promo: ''
+        }
+      },
+      paymentConfig: { pixKey: '', pixName: '', instructions: '' }
+    }
+    await db.write()
+    res.json({ ok: true, message: 'Database reset. Next registered user will be admin!' })
+  } catch (e) {
+    res.status(500).json({ error: String(e) })
+  }
+})
+
 app.post('/api/auth/signup', async (req, res) => {
   const { name, email, pass } = req.body || {}
   if (!name || !email || !pass) return res.status(400).send('Dados inválidos')

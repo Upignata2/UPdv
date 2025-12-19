@@ -1,0 +1,3 @@
+Admin User
+admin@test.com
+password123

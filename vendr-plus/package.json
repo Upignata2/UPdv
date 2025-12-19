@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "server": "node server/index.js"
+    "server": "node server/index.js",
+    "setup": "node scripts/setup.js"
   },
   "dependencies": {
     "@zxing/browser": "^0.1.4",
