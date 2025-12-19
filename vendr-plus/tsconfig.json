@@ -11,8 +11,7 @@
     "jsx": "react-jsx",
     "noEmit": true,
     "strict": true,
-    "baseUrl": ".",
-    "types": ["node", "vite/client"]
+    "baseUrl": "."
   },
   "include": ["src", "api"]
 }

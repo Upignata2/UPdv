@@ -55,6 +55,16 @@ try {
 }
 db.data ||= { products: [], customers: [], services: [], sales: [], quotes: [], users: [], sessions: [], accessLogs: [], supportEvents: [], plans: defaultPlans, paymentConfig: { pixKey: '', pixName: '', instructions: '' } }
 
+// Ensure all required arrays and objects exist
+if (!db.data.products) db.data.products = []
+if (!db.data.customers) db.data.customers = []
+if (!db.data.services) db.data.services = []
+if (!db.data.sales) db.data.sales = []
+if (!db.data.quotes) db.data.quotes = []
+if (!db.data.users) db.data.users = []
+if (!db.data.sessions) db.data.sessions = []
+if (!db.data.accessLogs) db.data.accessLogs = []
+if (!db.data.supportEvents) db.data.supportEvents = []
 if (!db.data.plans) { db.data.plans = defaultPlans; await db.write() }
 if (!db.data.paymentConfig) { db.data.paymentConfig = { pixKey: '', pixName: '', instructions: '' }; await db.write() }
 
@@ -261,21 +271,32 @@ app.post('/api/auth/logout', async (req, res) => {
 })
 
 app.get('/api/stats', requireAuth, async (req, res) => {
-  const today = new Date().toISOString().slice(0,10)
-  const month = new Date().toISOString().slice(0,7)
-  const admin = await isAdmin(req.userId)
-  const ownSales = admin ? db.data.sales : db.data.sales.filter(s=> s.ownerId===req.userId)
-  const salesToday = ownSales.filter(s=> s.createdAt.startsWith(today))
-  const salesMonth = ownSales.filter(s=> s.createdAt.startsWith(month))
-  const ownProducts = admin ? db.data.products : db.data.products.filter(p=>p.ownerId===req.userId)
-  const ownCustomers = admin ? db.data.customers : db.data.customers.filter(c=>c.ownerId===req.userId)
-  const sum = (arr)=> arr.reduce((acc,s)=> acc + s.total, 0)
-  res.json({ today: sum(salesToday), month: sum(salesMonth), products: ownProducts.length, customers: ownCustomers.length })
+  try {
+    const today = new Date().toISOString().slice(0,10)
+    const month = new Date().toISOString().slice(0,7)
+    const admin = await isAdmin(req.userId)
+    const ownSales = admin ? (db.data.sales || []) : (db.data.sales || []).filter(s=> s.ownerId===req.userId)
+    const salesToday = ownSales.filter(s=> s.createdAt.startsWith(today))
+    const salesMonth = ownSales.filter(s=> s.createdAt.startsWith(month))
+    const ownProducts = admin ? (db.data.products || []) : (db.data.products || []).filter(p=>p.ownerId===req.userId)
+    const ownCustomers = admin ? (db.data.customers || []) : (db.data.customers || []).filter(c=>c.ownerId===req.userId)
+    const sum = (arr)=> arr.reduce((acc,s)=> acc + (s.total||0), 0)
+    res.json({ today: sum(salesToday), month: sum(salesMonth), products: ownProducts.length, customers: ownCustomers.length })
+  } catch (e) {
+    console.error('Error in /api/stats:', e)
+    res.status(500).json({ error: 'Erro ao buscar estatísticas' })
+  }
 })
 
-app.get('/api/products', requireAuth, (req, res) => {
-  const items = isAdmin(req.userId) ? db.data.products : db.data.products.filter(p=>p.ownerId===req.userId)
-  res.json(items)
+app.get('/api/products', requireAuth, async (req, res) => {
+  try {
+    const admin = await isAdmin(req.userId)
+    const items = admin ? (db.data.products || []) : (db.data.products || []).filter(p=>p.ownerId===req.userId)
+    res.json(items)
+  } catch (e) {
+    console.error('Error in /api/products:', e)
+    res.status(500).json({ error: 'Erro ao buscar produtos' })
+  }
 })
 app.post('/api/products', requireAuth, async (req, res) => {
   const { name, sku, barcode, price, stock } = req.body
@@ -289,31 +310,55 @@ app.post('/api/products', requireAuth, async (req, res) => {
   db.data.products.push(p); await db.write(); res.json(p)
 })
 app.put('/api/products/:id', requireAuth, async (req, res) => {
-  const idx = db.data.products.findIndex(p=>p.id===req.params.id)
-  if (idx<0) return res.status(404).send('Produto não encontrado')
-  if (!isAdmin(req.userId) && db.data.products[idx].ownerId !== req.userId) return res.status(403).send('Proibido')
-  db.data.products[idx] = { ...db.data.products[idx], ...req.body }
-  await db.write(); res.json(db.data.products[idx])
+  try {
+    const idx = (db.data.products || []).findIndex(p=>p.id===req.params.id)
+    if (idx<0) return res.status(404).send('Produto não encontrado')
+    const admin = await isAdmin(req.userId)
+    if (!admin && (db.data.products || [])[idx].ownerId !== req.userId) return res.status(403).send('Proibido')
+    db.data.products[idx] = { ...db.data.products[idx], ...req.body }
+    await db.write(); res.json(db.data.products[idx])
+  } catch (e) {
+    console.error('Error in PUT /api/products/:id:', e)
+    res.status(500).json({ error: 'Erro ao atualizar produto' })
+  }
 })
 app.delete('/api/products/:id', requireAuth, async (req, res) => {
-  const idx = db.data.products.findIndex(p=>p.id===req.params.id)
-  if (idx<0) return res.status(404).send('Produto não encontrado')
-  if (!isAdmin(req.userId) && db.data.products[idx].ownerId !== req.userId) return res.status(403).send('Proibido')
-  const [removed] = db.data.products.splice(idx,1)
-  await db.write(); res.json(removed)
+  try {
+    const idx = (db.data.products || []).findIndex(p=>p.id===req.params.id)
+    if (idx<0) return res.status(404).send('Produto não encontrado')
+    const admin = await isAdmin(req.userId)
+    if (!admin && (db.data.products || [])[idx].ownerId !== req.userId) return res.status(403).send('Proibido')
+    const [removed] = db.data.products.splice(idx,1)
+    await db.write(); res.json(removed)
+  } catch (e) {
+    console.error('Error in DELETE /api/products/:id:', e)
+    res.status(500).json({ error: 'Erro ao deletar produto' })
+  }
 })
 
-app.get('/api/products/barcode/:code', requireAuth, (req, res) => {
-  const code = req.params.code
-  const pool = isAdmin(req.userId) ? db.data.products : db.data.products.filter(p=>p.ownerId===req.userId)
-  const p = pool.find(pp=> pp.barcode === code || pp.sku === code)
-  if (!p) return res.status(404).send('Produto não encontrado')
-  res.json(p)
+app.get('/api/products/barcode/:code', requireAuth, async (req, res) => {
+  try {
+    const code = req.params.code
+    const admin = await isAdmin(req.userId)
+    const pool = admin ? (db.data.products || []) : (db.data.products || []).filter(p=>p.ownerId===req.userId)
+    const p = pool.find(pp=> pp.barcode === code || pp.sku === code)
+    if (!p) return res.status(404).send('Produto não encontrado')
+    res.json(p)
+  } catch (e) {
+    console.error('Error in /api/products/barcode/:code:', e)
+    res.status(500).json({ error: 'Erro ao buscar produto' })
+  }
 })
 
-app.get('/api/services', requireAuth, (req, res) => {
-  const items = isAdmin(req.userId) ? db.data.services : db.data.services.filter(s=>s.ownerId===req.userId)
-  res.json(items)
+app.get('/api/services', requireAuth, async (req, res) => {
+  try {
+    const admin = await isAdmin(req.userId)
+    const items = admin ? (db.data.services || []) : (db.data.services || []).filter(s=>s.ownerId===req.userId)
+    res.json(items)
+  } catch (e) {
+    console.error('Error in /api/services:', e)
+    res.status(500).json({ error: 'Erro ao buscar serviços' })
+  }
 })
 app.post('/api/services', requireAuth, async (req, res) => {
   const { name, price } = req.body
@@ -322,23 +367,41 @@ app.post('/api/services', requireAuth, async (req, res) => {
   db.data.services.push(s); await db.write(); res.json(s)
 })
 app.put('/api/services/:id', requireAuth, async (req, res) => {
-  const idx = db.data.services.findIndex(s=>s.id===req.params.id)
-  if (idx<0) return res.status(404).send('Serviço não encontrado')
-  if (!isAdmin(req.userId) && db.data.services[idx].ownerId !== req.userId) return res.status(403).send('Proibido')
-  db.data.services[idx] = { ...db.data.services[idx], ...req.body }
-  await db.write(); res.json(db.data.services[idx])
+  try {
+    const idx = (db.data.services || []).findIndex(s=>s.id===req.params.id)
+    if (idx<0) return res.status(404).send('Serviço não encontrado')
+    const admin = await isAdmin(req.userId)
+    if (!admin && (db.data.services || [])[idx].ownerId !== req.userId) return res.status(403).send('Proibido')
+    db.data.services[idx] = { ...db.data.services[idx], ...req.body }
+    await db.write(); res.json(db.data.services[idx])
+  } catch (e) {
+    console.error('Error in PUT /api/services/:id:', e)
+    res.status(500).json({ error: 'Erro ao atualizar serviço' })
+  }
 })
 app.delete('/api/services/:id', requireAuth, async (req, res) => {
-  const idx = db.data.services.findIndex(s=>s.id===req.params.id)
-  if (idx<0) return res.status(404).send('Serviço não encontrado')
-  if (!isAdmin(req.userId) && db.data.services[idx].ownerId !== req.userId) return res.status(403).send('Proibido')
-  const [removed] = db.data.services.splice(idx,1)
-  await db.write(); res.json(removed)
+  try {
+    const idx = (db.data.services || []).findIndex(s=>s.id===req.params.id)
+    if (idx<0) return res.status(404).send('Serviço não encontrado')
+    const admin = await isAdmin(req.userId)
+    if (!admin && (db.data.services || [])[idx].ownerId !== req.userId) return res.status(403).send('Proibido')
+    const [removed] = db.data.services.splice(idx,1)
+    await db.write(); res.json(removed)
+  } catch (e) {
+    console.error('Error in DELETE /api/services/:id:', e)
+    res.status(500).json({ error: 'Erro ao deletar serviço' })
+  }
 })
 
-app.get('/api/customers', requireAuth, (req, res) => {
-  const items = isAdmin(req.userId) ? db.data.customers : db.data.customers.filter(c=>c.ownerId===req.userId)
-  res.json(items)
+app.get('/api/customers', requireAuth, async (req, res) => {
+  try {
+    const admin = await isAdmin(req.userId)
+    const items = admin ? (db.data.customers || []) : (db.data.customers || []).filter(c=>c.ownerId===req.userId)
+    res.json(items)
+  } catch (e) {
+    console.error('Error in /api/customers:', e)
+    res.status(500).json({ error: 'Erro ao buscar clientes' })
+  }
 })
 app.post('/api/customers', requireAuth, async (req, res) => {
   const { name, email } = req.body
@@ -352,172 +415,196 @@ app.post('/api/customers', requireAuth, async (req, res) => {
   db.data.customers.push(c); await db.write(); res.json(c)
 })
 app.put('/api/customers/:id', requireAuth, async (req, res) => {
-  const idx = db.data.customers.findIndex(c=>c.id===req.params.id)
-  if (idx<0) return res.status(404).send('Cliente não encontrado')
-  if (!isAdmin(req.userId) && db.data.customers[idx].ownerId !== req.userId) return res.status(403).send('Proibido')
-  db.data.customers[idx] = { ...db.data.customers[idx], ...req.body }
-  await db.write(); res.json(db.data.customers[idx])
+  try {
+    const idx = (db.data.customers || []).findIndex(c=>c.id===req.params.id)
+    if (idx<0) return res.status(404).send('Cliente não encontrado')
+    const admin = await isAdmin(req.userId)
+    if (!admin && (db.data.customers || [])[idx].ownerId !== req.userId) return res.status(403).send('Proibido')
+    db.data.customers[idx] = { ...db.data.customers[idx], ...req.body }
+    await db.write(); res.json(db.data.customers[idx])
+  } catch (e) {
+    console.error('Error in PUT /api/customers/:id:', e)
+    res.status(500).json({ error: 'Erro ao atualizar cliente' })
+  }
 })
 app.delete('/api/customers/:id', requireAuth, async (req, res) => {
-  const idx = db.data.customers.findIndex(c=>c.id===req.params.id)
-  if (idx<0) return res.status(404).send('Cliente não encontrado')
-  if (!isAdmin(req.userId) && db.data.customers[idx].ownerId !== req.userId) return res.status(403).send('Proibido')
-  const [removed] = db.data.customers.splice(idx,1)
-  await db.write(); res.json(removed)
+  try {
+    const idx = (db.data.customers || []).findIndex(c=>c.id===req.params.id)
+    if (idx<0) return res.status(404).send('Cliente não encontrado')
+    const admin = await isAdmin(req.userId)
+    if (!admin && (db.data.customers || [])[idx].ownerId !== req.userId) return res.status(403).send('Proibido')
+    const [removed] = db.data.customers.splice(idx,1)
+    await db.write(); res.json(removed)
+  } catch (e) {
+    console.error('Error in DELETE /api/customers/:id:', e)
+    res.status(500).json({ error: 'Erro ao deletar cliente' })
+  }
 })
 
-app.get('/api/sales', requireAuth, (req, res) => {
-  const items = isAdmin(req.userId) ? db.data.sales : db.data.sales.filter(s=>s.ownerId===req.userId)
-  res.json(items)
+app.get('/api/sales', requireAuth, async (req, res) => {
+  try {
+    const admin = await isAdmin(req.userId)
+    const items = admin ? (db.data.sales || []) : (db.data.sales || []).filter(s=>s.ownerId===req.userId)
+    res.json(items)
+  } catch (e) {
+    console.error('Error in /api/sales:', e)
+    res.status(500).json({ error: 'Erro ao buscar vendas' })
+  }
 })
 app.post('/api/sales', requireAuth, async (req, res) => {
-  const { customerId, items } = req.body
-  if (!Array.isArray(items) || items.length===0) return res.status(400).send('Itens obrigatórios')
-  let total = 0
-  const updates = []
-  for (const it of items) {
-    if (!it.productId || !it.qty) return res.status(400).send('Item incompleto')
-    const p = db.data.products.find(pp=>pp.id===it.productId)
-    if (!p) return res.status(400).send('Produto inválido')
-    if (p.stock < it.qty) return res.status(400).send('Estoque insuficiente')
-    total += Number(it.qty) * Number(it.price || p.price)
-    updates.push({ id: p.id, newStock: p.stock - Number(it.qty) })
-  }
-  for (const u of updates) {
-    const idx = db.data.products.findIndex(p=>p.id===u.id)
-    db.data.products[idx].stock = u.newStock
-  }
-  const sale = { id: nanoid(12), ownerId: req.userId, customerId, items, total, createdAt: new Date().toISOString() }
-  // Geração do Cupom Fiscal Detalhado
-  const receipt = {
-    saleId: sale.id,
-    date: new Date().toLocaleDateString('pt-BR'),
-    time: new Date().toLocaleTimeString('pt-BR'),
-    items: items.map(item => {
-      const product = db.data.products.find(p => p.id === item.productId)
-      const name = product ? product.name : 'Produto Desconhecido'
-      return {
-        description: name,
-        quantity: item.qty,
-        unitPrice: item.price,
-        total: item.qty * item.price
-      }
-    }),
-    total: sale.total
-  }
-  sale.receipt = receipt
-  db.data.sales.push(sale)
-  await db.write()
-  res.json(sale)
-})
-
-app.get('/api/quotes', requireAuth, (req, res) => {
-  const items = isAdmin(req.userId) ? db.data.quotes : db.data.quotes.filter(q=>q.ownerId===req.userId)
-  res.json(items)
-})
-app.post('/api/quotes', requireAuth, async (req, res) => {
-  const { customerId, items } = req.body
-  if (!Array.isArray(items) || items.length===0) return res.status(400).send('Itens obrigatórios')
-  let total = 0
-  for (const it of items) {
-    if (!['product','service'].includes(it.kind)) return res.status(400).send('Item inválido')
-    if (!it.refId || !it.qty) return res.status(400).send('Item incompleto')
-    if (it.kind==='product') {
-      const p = db.data.products.find(pp=>pp.id===it.refId)
-      if (!p) return res.status(400).send('Produto inválido')
-      total += Number(it.qty) * Number(it.price || p.price)
-    } else {
-      const s = db.data.services.find(ss=>ss.id===it.refId)
-      if (!s) return res.status(400).send('Serviço inválido')
-      total += Number(it.qty) * Number(it.price || s.price)
-    }
-  }
-  const quote = { id: nanoid(12), ownerId: req.userId, customerId, items, total, status: 'open', createdAt: new Date().toISOString() }
-  db.data.quotes.push(quote)
-  await db.write()
-  res.json(quote)
-})
-app.post('/api/quotes/:id/convert', requireAuth, async (req, res) => {
-  const q = db.data.quotes.find(qq=>qq.id===req.params.id)
-  if (!q) return res.status(404).send('Orçamento não encontrado')
-  if (q.status !== 'open') return res.status(400).send('Orçamento já convertido')
-  let total = 0
-  const updates = []
-  for (const it of q.items) {
-    if (it.kind==='product') {
-      const p = db.data.products.find(pp=>pp.id===it.refId)
+  try {
+    const { customerId, items } = req.body
+    if (!Array.isArray(items) || items.length===0) return res.status(400).send('Itens obrigatórios')
+    let total = 0
+    const updates = []
+    for (const it of items) {
+      if (!it.productId || !it.qty) return res.status(400).send('Item incompleto')
+      const p = (db.data.products || []).find(pp=>pp.id===it.productId)
       if (!p) return res.status(400).send('Produto inválido')
       if (p.stock < it.qty) return res.status(400).send('Estoque insuficiente')
       total += Number(it.qty) * Number(it.price || p.price)
       updates.push({ id: p.id, newStock: p.stock - Number(it.qty) })
-    } else {
-      const s = db.data.services.find(ss=>ss.id===it.refId)
-      if (!s) return res.status(400).send('Serviço inválido')
-      total += Number(it.qty) * Number(it.price || s.price)
     }
+    for (const u of updates) {
+      const idx = (db.data.products || []).findIndex(p=>p.id===u.id)
+      if (idx >= 0) db.data.products[idx].stock = u.newStock
+    }
+    const sale = { id: nanoid(12), ownerId: req.userId, customerId, items, total, createdAt: new Date().toISOString() }
+    // Geração do Cupom Fiscal Detalhado
+    const receipt = {
+      saleId: sale.id,
+      date: new Date().toLocaleDateString('pt-BR'),
+      time: new Date().toLocaleTimeString('pt-BR'),
+      items: items.map(item => {
+        const product = (db.data.products || []).find(p => p.id === item.productId)
+        const name = product ? product.name : 'Produto Desconhecido'
+        return {
+          description: name,
+          quantity: item.qty,
+          unitPrice: item.price,
+          total: item.qty * item.price
+        }
+      }),
+      total: sale.total
+    }
+    sale.receipt = receipt
+    db.data.sales.push(sale)
+    await db.write()
+    res.json(sale)
+  } catch (e) {
+    console.error('Error in POST /api/sales:', e)
+    res.status(500).json({ error: 'Erro ao criar venda' })
   }
-  for (const u of updates) {
-    const idx = db.data.products.findIndex(p=>p.id===u.id)
-    db.data.products[idx].stock = u.newStock
+})
+
+app.get('/api/quotes', requireAuth, async (req, res) => {
+  try {
+    const admin = await isAdmin(req.userId)
+    const items = admin ? (db.data.quotes || []) : (db.data.quotes || []).filter(q=>q.ownerId===req.userId)
+    res.json(items)
+  } catch (e) {
+    console.error('Error in /api/quotes:', e)
+    res.status(500).json({ error: 'Erro ao buscar orçamentos' })
   }
-  const sale = { id: nanoid(12), ownerId: req.userId, customerId: q.customerId, items: q.items.filter(i=>i.kind==='product').map(i=>({ productId: i.refId, qty: i.qty, price: i.price })), total, createdAt: new Date().toISOString() }
-  // Geração do Cupom Fiscal Detalhado
-  const receipt = {
-    saleId: sale.id,
-    date: new Date().toLocaleDateString('pt-BR'),
-    time: new Date().toLocaleTimeString('pt-BR'),
-    items: q.items.map(item => {
-      const product = db.data.products.find(p => p.id === item.refId)
-      const service = db.data.services.find(s => s.id === item.refId)
-      const name = product ? product.name : (service ? service.name : 'Item Desconhecido')
-      const price = item.price || (product ? product.price : (service ? service.price : 0))
-      return {
-        description: name,
-        quantity: item.qty,
-        unitPrice: price,
-        total: item.qty * price
+})
+app.post('/api/quotes', requireAuth, async (req, res) => {
+  try {
+    const { customerId, items } = req.body
+    if (!Array.isArray(items) || items.length===0) return res.status(400).send('Itens obrigatórios')
+    let total = 0
+    for (const it of items) {
+      if (!['product','service'].includes(it.kind)) return res.status(400).send('Item inválido')
+      if (!it.refId || !it.qty) return res.status(400).send('Item incompleto')
+      if (it.kind==='product') {
+        const p = (db.data.products || []).find(pp=>pp.id===it.refId)
+        if (!p) return res.status(400).send('Produto inválido')
+        total += Number(it.qty) * Number(it.price || p.price)
+      } else {
+        const s = (db.data.services || []).find(ss=>ss.id===it.refId)
+        if (!s) return res.status(400).send('Serviço inválido')
+        total += Number(it.qty) * Number(it.price || s.price)
       }
-    }),
-    total: sale.total
+    }
+    const quote = { id: nanoid(12), ownerId: req.userId, customerId, items, total, status: 'open', createdAt: new Date().toISOString() }
+    db.data.quotes.push(quote)
+    await db.write()
+    res.json(quote)
+  } catch (e) {
+    console.error('Error in POST /api/quotes:', e)
+    res.status(500).json({ error: 'Erro ao criar orçamento' })
   }
-  sale.receipt = receipt
-  // Geração do Cupom Fiscal Detalhado
-  const receipt = {
-    saleId: sale.id,
-    date: new Date().toLocaleDateString('pt-BR'),
-    time: new Date().toLocaleTimeString('pt-BR'),
-    items: q.items.map(item => {
-      const product = db.data.products.find(p => p.id === item.refId)
-      const service = db.data.services.find(s => s.id === item.refId)
-      const name = product ? product.name : (service ? service.name : 'Item Desconhecido')
-      const price = item.price || (product ? product.price : (service ? service.price : 0))
-      return {
-        description: name,
-        quantity: item.qty,
-        unitPrice: price,
-        total: item.qty * price
+})
+app.post('/api/quotes/:id/convert', requireAuth, async (req, res) => {
+  try {
+    const q = (db.data.quotes || []).find(qq=>qq.id===req.params.id)
+    if (!q) return res.status(404).send('Orçamento não encontrado')
+    if (q.status !== 'open') return res.status(400).send('Orçamento já convertido')
+    let total = 0
+    const updates = []
+    for (const it of q.items) {
+      if (it.kind==='product') {
+        const p = (db.data.products || []).find(pp=>pp.id===it.refId)
+        if (!p) return res.status(400).send('Produto inválido')
+        if (p.stock < it.qty) return res.status(400).send('Estoque insuficiente')
+        total += Number(it.qty) * Number(it.price || p.price)
+        updates.push({ id: p.id, newStock: p.stock - Number(it.qty) })
+      } else {
+        const s = (db.data.services || []).find(ss=>ss.id===it.refId)
+        if (!s) return res.status(400).send('Serviço inválido')
+        total += Number(it.qty) * Number(it.price || s.price)
       }
-    }),
-    total: sale.total
+    }
+    for (const u of updates) {
+      const idx = (db.data.products || []).findIndex(p=>p.id===u.id)
+      if (idx >= 0) db.data.products[idx].stock = u.newStock
+    }
+    const sale = { id: nanoid(12), ownerId: req.userId, customerId: q.customerId, items: q.items.filter(i=>i.kind==='product').map(i=>({ productId: i.refId, qty: i.qty, price: i.price })), total, createdAt: new Date().toISOString() }
+    // Geração do Cupom Fiscal Detalhado
+    const receipt = {
+      saleId: sale.id,
+      date: new Date().toLocaleDateString('pt-BR'),
+      time: new Date().toLocaleTimeString('pt-BR'),
+      items: q.items.map(item => {
+        const product = (db.data.products || []).find(p => p.id === item.refId)
+        const service = (db.data.services || []).find(s => s.id === item.refId)
+        const name = product ? product.name : (service ? service.name : 'Item Desconhecido')
+        const price = item.price || (product ? product.price : (service ? service.price : 0))
+        return {
+          description: name,
+          quantity: item.qty,
+          unitPrice: price,
+          total: item.qty * price
+        }
+      }),
+      total: sale.total
+    }
+    sale.receipt = receipt
+    db.data.sales.push(sale)
+    q.status = 'converted'
+    await db.write()
+    res.json(sale)
+  } catch (e) {
+    console.error('Error in POST /api/quotes/:id/convert:', e)
+    res.status(500).json({ error: 'Erro ao converter orçamento' })
   }
-  sale.receipt = receipt
-  db.data.sales.push(sale)
-  q.status = 'converted'
-  await db.write()
-  res.json(sale)
 })
 
 app.get('/api/admin/users', requireAuth, requireAdmin, async (req, res) => {
-  const mapCount = (ownerId) => ({
-    products: db.data.products.filter(p=>p.ownerId===ownerId).length,
-    customers: db.data.customers.filter(c=>c.ownerId===ownerId).length,
-    sales: db.data.sales.filter(s=>s.ownerId===ownerId).length,
-    services: db.data.services.filter(s=>s.ownerId===ownerId).length,
-    quotes: db.data.quotes.filter(q=>q.ownerId===ownerId).length,
-  })
-  const base = await store.listUsers()
-  const users = base.map(u=> ({ ...u, usage: mapCount(u.id) }))
-  res.json(users)
+  try {
+    const mapCount = (ownerId) => ({
+      products: (db.data.products || []).filter(p=>p.ownerId===ownerId).length,
+      customers: (db.data.customers || []).filter(c=>c.ownerId===ownerId).length,
+      sales: (db.data.sales || []).filter(s=>s.ownerId===ownerId).length,
+      services: (db.data.services || []).filter(s=>s.ownerId===ownerId).length,
+      quotes: (db.data.quotes || []).filter(q=>q.ownerId===ownerId).length,
+    })
+    const base = await store.listUsers()
+    const users = base.map(u=> ({ ...u, usage: mapCount(u.id) }))
+    res.json(users)
+  } catch (e) {
+    console.error('Error in /api/admin/users:', e)
+    res.status(500).json({ error: 'Erro ao buscar usuários' })
+  }
 })
 app.post('/api/admin/payment-config', requireAuth, requireAdmin, async (req, res) => {
   const conf = req.body || {}
