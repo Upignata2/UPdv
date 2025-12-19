@@ -720,18 +720,27 @@ function Admin() {
   const [list, setList] = useState<Array<{ id:string; name:string; email:string; role?:'admin'|'user'; plan?:'gratis'|'basico'|'elite'; active?:boolean; usage:{ products:number; customers:number; sales:number; services:number; quotes:number } }>>([])
   const [metrics, setMetrics] = useState<any>()
   const [logs, setLogs] = useState<Array<{ id:string; ts:string; userId:string|null; method:string; path:string; status:number; dur:number }>>([])
-  const [plans, setPlans] = useState<any>()
+  const [plans, setPlans] = useState<any>({gratis:{name:'Gratis',monthlyPrice:0,annualPrice:0,limits:{products:30,customers:30},features:{coupon:false,nota:false,support:'none'},promo:''},basico:{name:'Basico',monthlyPrice:19.9,annualPrice:209.9,limits:{products:150,customers:150},features:{coupon:true,nota:true,support:'limited'},promo:''},elite:{name:'Elite',monthlyPrice:39.9,annualPrice:409.9,limits:{products:null,customers:null},features:{coupon:true,nota:true,support:'full'},promo:''}})
   const [payConf, setPayConf] = useState<{pixKey:string; pixName:string; instructions:string; mpAccessToken?:string}>({pixKey:'', pixName:'', instructions:''})
   const [loading, setLoading] = useState(false)
   const load = async () => {
-    const users = await api<typeof list[0][]>(`/admin/users`)
-    setList(users)
-    const m = await api<any>(`/admin/metrics`)
-    setMetrics(m)
-    const lg = await api<typeof logs>(`/admin/access-logs?limit=200`)
-    setLogs(lg)
-    const p = await api<any>(`/admin/plans`)
-    setPlans(p)
+    try {
+      const users = await api<typeof list[0][]>(`/admin/users`)
+      setList(users)
+    } catch (e) { console.error('Erro ao carregar usuários:', e) }
+    try {
+      const m = await api<any>(`/admin/metrics`)
+      setMetrics(m)
+    } catch (e) { console.error('Erro ao carregar métricas:', e) }
+    try {
+      const lg = await api<typeof logs>(`/admin/access-logs?limit=200`)
+      setLogs(lg)
+    } catch (e) { console.error('Erro ao carregar logs:', e) }
+    try {
+      const p = await api<any>(`/admin/plans`)
+      console.log('Planos carregados:', p)
+      setPlans(p)
+    } catch (e) { console.error('Erro ao carregar planos:', e) }
     // For admin, we want to edit secret token too, so we need a new endpoint or update the public one?
     // The public one hides it. Admin should use a different one or we just allow setting it (blindly)
     // Let's assume we can fetch it via a new admin endpoint or just set it. 
@@ -849,10 +858,10 @@ function Admin() {
       </div>
       <div className="card">
         <div className="h2">Planos</div>
-        {plans && (
+        {plans ? (
           <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16, marginTop: 12 }}>
             {(['gratis', 'basico', 'elite'] as const).map(pid => (
-              <div key={pid} className="card" style={{ border: '1px solid var(--border)', background: 'var(--bg)', padding: 16 }}>
+              <div key={pid} className="card" style={{ border: '1px solid var(--border)', background: 'var(--bg)', padding: 16, display: 'flex', flexDirection: 'column', maxHeight: '80vh', overflow: 'auto' }}>
                 <div className="h3" style={{ marginBottom: 12, textTransform: 'capitalize', color: 'var(--primary)' }}>{pid}</div>
                 
                 <div className="label">Nome do Plano</div>
@@ -909,10 +918,12 @@ function Admin() {
                 <div className="label">Texto Promocional</div>
                 <input className="input" placeholder="Ex: Recomendado" value={plans[pid].promo || ''} onChange={e => setPlans((prev: any) => ({ ...prev, [pid]: { ...prev[pid], promo: e.target.value } }))} style={{ marginBottom: 16 }} />
 
-                <button className="btn primary" style={{ width: '100%', justifyContent: 'center' }} onClick={() => savePlan(pid)} disabled={loading}>Salvar Alterações</button>
+                <button className="btn primary" style={{ width: '100%', justifyContent: 'center', marginTop: 'auto' }} onClick={() => savePlan(pid)} disabled={loading}>Salvar Alterações</button>
               </div>
             ))}
           </div>
+        ) : (
+          <div className="muted" style={{marginTop:12}}>Carregando planos...</div>
         )}
       </div>
       <div className="card">

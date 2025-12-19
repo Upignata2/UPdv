@@ -1,7 +1,7 @@
 const auth = {
-  "token": "e0a2f9be25a540021b018198f05d1258af5f6645ceea6270",
+  "token": "7d45293e065b6445a93c7267f0b402e0aa0792237650dbcb",
   "user": {
-    "id": "2o2il_ZwMa",
+    "id": "mnRjDxaJxi",
     "name": "Admin User",
     "email": "admin@test.com",
     "role": "admin",
@@ -12,3 +12,4 @@ const auth = {
 localStorage.setItem('updv_auth', JSON.stringify(auth));
 console.log('✓ Login realizado como admin!');
 console.log('Atualize a página para continuar...');
+

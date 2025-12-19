@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Login - UPdv</title>
+    <style>
+        body { font-family: sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
+        .card { border: 1px solid #ddd; padding: 20px; border-radius: 8px; }
+        input { display: block; width: 100%; padding: 10px; margin: 10px 0; }
+        button { padding: 10px 20px; background: #ec4899; color: white; border: none; cursor: pointer; border-radius: 4px; }
+        button:hover { background: #be185d; }
+        .info { background: #f0f9ff; padding: 10px; margin: 10px 0; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>🔐 Admin Login</h1>
+        
+        <div class="info">
+            <strong>Demo Credentials:</strong><br>
+            Email: admin@test.com<br>
+            Password: password123
+        </div>
+
+        <form id="loginForm">
+            <label>Email:</label>
+            <input type="email" id="email" value="admin@test.com" required>
+            
+            <label>Password:</label>
+            <input type="password" id="password" value="password123" required>
+            
+            <button type="submit">Login</button>
+        </form>
+
+        <div id="message"></div>
+    </div>
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const msg = document.getElementById('message');
+            msg.innerHTML = '⏳ Fazendo login...';
+
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        identifier: document.getElementById('email').value,
+                        pass: document.getElementById('password').value
+                    })
+                });
+
+                if (!res.ok) {
+                    msg.innerHTML = '❌ Erro: ' + await res.text();
+                    return;
+                }
+
+                const data = await res.json();
+                localStorage.setItem('updv_auth', JSON.stringify(data));
+                msg.innerHTML = `✅ Login bem-sucedido! Redirecionando para admin...`;
+                setTimeout(() => {
+                    window.location.href = '/#admin';
+                }, 1000);
+            } catch (e) {
+                msg.innerHTML = '❌ Erro: ' + e.message;
+            }
+        });
+    </script>
+</body>
+</html>
