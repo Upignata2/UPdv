@@ -770,7 +770,7 @@ app.post('/api/support/events', requireAuth, requireAdmin, async (req, res) => {
   res.json(ev)
 })
 const port = process.env.PORT || 8080
-if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
   app.listen(port, () => console.log(`API em http://localhost:${port}`))
 }
 export default app
