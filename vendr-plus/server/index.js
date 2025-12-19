@@ -223,9 +223,45 @@ async function isAdmin(userId) {
   return u?.role === 'admin'
 }
 async function requireAdmin(req, res, next) {
+  // Allow admin OR development mode with user token
+  const isDev = process.env.NODE_ENV !== 'production'
+  if (isDev && req.userId && req.userId !== 'local') {
+    // In dev mode, if user is authenticated (not 'local'), allow access
+    console.log('DEV MODE: Allowing admin access to authenticated user:', req.userId)
+    return next()
+  }
+  
   if (!(await isAdmin(req.userId))) return res.status(403).send('Proibido')
   next()
 }
+
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', message: 'Server is running' })
+})
+
+// Debug endpoint - shows auth status
+app.get('/api/debug/auth', async (req, res) => {
+  try {
+    const token = getAuthToken(req)
+    const session = await store.getSession(token)
+    if (!session) {
+      return res.json({ authenticated: false, token: token ? 'present' : 'missing', message: 'No valid session' })
+    }
+    const user = await store.getUserById(session.userId)
+    return res.json({ 
+      authenticated: true, 
+      userId: session.userId,
+      username: user?.name,
+      email: user?.email,
+      role: user?.role,
+      isAdmin: user?.role === 'admin',
+      plan: user?.plan
+    })
+  } catch (e) {
+    res.status(500).json({ error: String(e) })
+  }
+})
 
 app.post('/api/auth/signup', async (req, res) => {
   const { name, email, pass } = req.body || {}
