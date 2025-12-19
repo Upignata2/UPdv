@@ -1,12 +1,15 @@
 import express from 'express'
 import cors from 'cors'
-import { join } from 'path'
+import { join, dirname } from 'path'
+import { fileURLToPath } from 'url'
 import { Low } from 'lowdb'
 import { JSONFile } from 'lowdb/node'
 import { nanoid } from 'nanoid'
 import { randomBytes, createHash } from 'node:crypto'
 
-const dbFile = join(process.cwd(), 'server', 'data', 'db.json')
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
+const dbFile = join(__dirname, 'data', 'db.json')
 const adapter = new JSONFile(dbFile)
 const defaultPlans = {
   gratis: {
