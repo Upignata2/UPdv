@@ -1,4 +1,5 @@
-import app from '../../server/index.js'
+// @ts-ignore
+import app from '../server/index.js'
 
 export const config = {
   api: {
