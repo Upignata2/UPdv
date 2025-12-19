@@ -6,6 +6,7 @@ import { Low } from 'lowdb'
 import { JSONFile } from 'lowdb/node'
 import { nanoid } from 'nanoid'
 import { randomBytes, createHash } from 'node:crypto'
+import { checkSubscriptionAlert } from './alerts.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -155,6 +156,10 @@ const store = {
   async setUserActive(id, active) {
     if (usePg) { await sql(`update users set active=$2 where id=$1`, [id, !!active]); return }
     const u = db.data.users.find(x=>x.id===id); if (u) { u.active = !!active; await db.write() }
+  },
+  async setSubscriptionExpiry(id, expiryDate) {
+    if (usePg) { return }
+    const u = db.data.users.find(x=>x.id===id); if (u) { u.subscriptionExpiry = expiryDate; await db.write() }
   },
   async getPaymentConfig() {
     if (usePg) { /* TODO: SQL implementation */ return { pixKey: '', pixName: '', instructions: '' } }
@@ -328,7 +333,7 @@ app.post('/api/auth/signup', async (req, res) => {
   const passHash = hashPassword(String(pass), salt)
   const allUsers = await store.listUsers()
   const isFirst = (allUsers?.length||0) === 0
-  const user = { id: nanoid(10), name: String(name), email: String(email), salt, pass: passHash, role: isFirst ? 'admin' : 'user', plan: isFirst ? 'elite' : 'gratis', active: true }
+  const user = { id: nanoid(10), name: String(name), email: String(email), salt, pass: passHash, role: isFirst ? 'admin' : 'user', plan: isFirst ? 'elite' : 'gratis', active: true, subscriptionExpiry: null, paymentStatus: 'active' }
   await store.insertUser(user)
   const token = await store.createSession(user.id)
   res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, plan: user.plan } })
@@ -360,6 +365,12 @@ app.post('/api/auth/logout', async (req, res) => {
   const token = getAuthToken(req)
   await store.deleteSession(token)
   res.json({ ok: true })
+})
+app.get('/api/subscription/alert', requireAuth, async (req, res) => {
+  const user = await store.getUserById(req.userId)
+  if (!user) return res.status(404).send('Usuario nao encontrado')
+  const alert = checkSubscriptionAlert(user)
+  res.json({ alert })
 })
 
 app.get('/api/stats', requireAuth, async (req, res) => {
@@ -754,6 +765,9 @@ app.post('/api/pay/card', requireAuth, async (req, res) => {
   
   // Simulate payment success
   await store.setUserPlan(req.userId, planId)
+  const billingCycle = req.body.billingCycle || 'monthly'
+  const expiryDate = new Date(Date.now() + (billingCycle==='annual' ? 365 : 30) * 24*60*60*1000).toISOString()
+  await store.setSubscriptionExpiry(req.userId, expiryDate)
   res.json({ ok: true, simulated: !conf.mpAccessToken })
 })
 

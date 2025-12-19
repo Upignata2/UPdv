@@ -113,7 +113,8 @@ function Home({ plan }:{ plan: { name:string; monthlyPrice:number; annualPrice:n
   const [stats, setStats] = useState<{ today: number; month: number; products: number; customers: number }>()
   const [plansOpen, setPlansOpen] = useState(false)
   const [checkoutPlan, setCheckoutPlan] = useState<any>(null)
-  useEffect(() => { api<{
+  const [alert, setAlert] = useState<any>(null)
+  useEffect(() => { api<any>(`/subscription/alert`).then(r=>setAlert(r.alert)).catch(()=>{}); api<{
     today: number; month: number; products: number; customers: number
   }>(`/stats`).then(setStats).catch(console.error) }, [])
   const goal = 2000
@@ -129,6 +130,7 @@ function Home({ plan }:{ plan: { name:string; monthlyPrice:number; annualPrice:n
 
   return (
     <div className="grid">
+      {alert && <div style={{padding:16,background:alert.type==='access_blocked'?'#dc2626':'#f59e0b',color:'white',borderRadius:8,marginBottom:16}}>{alert.message}</div>}
       <div className="tiles">
         <div className="tile primary">
           <div className="label">Vendas no mês</div>
