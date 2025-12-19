@@ -757,9 +757,10 @@ app.post('/api/pay/card', requireAuth, async (req, res) => {
   res.json({ ok: true, simulated: !conf.mpAccessToken })
 })
 
-app.get('/api/admin/plans', requireAuth, requireAdmin, async (req, res) => { res.json(await store.getPlans()) })
+app.get('/api/admin/plans', requireAuth, requireAdmin, async (req, res) => { try { res.json(await store.getPlans()) } catch (e) { res.status(500).json({ error: String(e) }) } })
 app.put('/api/admin/plans/:id', requireAuth, requireAdmin, async (req, res) => {
-  const id = req.params.id
+  try {
+    const id = req.params.id
   if (!['gratis','basico','elite'].includes(id)) return res.status(400).send('Plano inválido')
   const payload = req.body || {}
   const curr = await store.getPlanById(id) || {}
@@ -781,9 +782,13 @@ app.put('/api/admin/plans/:id', requireAuth, requireAdmin, async (req, res) => {
     updated.features = { coupon: !!pf.coupon, nota: !!pf.nota, support }
   }
   if (Object.prototype.hasOwnProperty.call(payload, 'promo')) updated.promo = String(payload.promo)
-  await store.updatePlan(id, updated)
-  const resp = await store.getPlanById(id)
-  res.json(resp)
+    await store.updatePlan(id, updated)
+    const resp = await store.getPlanById(id)
+    res.json(resp)
+  } catch (e) {
+    console.error('Erro ao atualizar plano:', e)
+    res.status(500).json({ error: String(e) })
+  }
 })
 app.post('/api/admin/users/:id/plan', requireAuth, requireAdmin, async (req, res) => {
   const { plan } = req.body || {}
